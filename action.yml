@@ -1,7 +1,12 @@
-name: 'Your name here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: 'Create Nightly Release'
+description: 'Create nightly release and upload new artifacts'
+author: 'Andelf'
 inputs:
+  tag_name:
+    description: 'The name of the tag.'
+    required: true
+    default: 'nightly'
+
   milliseconds: # change this
     required: true
     description: 'input description here'
