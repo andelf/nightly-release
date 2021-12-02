@@ -8,8 +8,7 @@ import { wait } from './wait'
 
 async function run(): Promise<void> {
   try {
-    const github = new GitHub({ token: process.env.GITHUB_TOKEN });
-
+    const github = new GitHub({ auth: process.env.GITHUB_TOKEN })
 
     const rel = await github.rest.repos.getReleaseByTag({
       owner: 'andelf',

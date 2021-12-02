@@ -44,10 +44,7 @@ const wait_1 = __nccwpck_require__(5817);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            //const github = new GitHub({ auth: process.env.GITHUB_TOKEN });
-            const github = new utils_1.GitHub({
-                auth: '9b84e80c34760328a0fa491be717c1abc19dfe2a'
-            });
+            const github = new utils_1.GitHub({ auth: process.env.GITHUB_TOKEN });
             const rel = yield github.rest.repos.getReleaseByTag({
                 owner: 'andelf',
                 repo: 'nightly-release',
@@ -65,6 +62,7 @@ function run() {
             core.setOutput('time', new Date().toTimeString());
         }
         catch (error) {
+            //console.log(error)
             if (error instanceof Error)
                 core.setFailed(error.message);
         }
