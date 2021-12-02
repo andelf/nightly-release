@@ -13,6 +13,8 @@ async function run(): Promise<void> {
     const tagName: string = core.getInput('tag_name')
     core.notice(`this tag name is ${tagName}`)
 
+    core.info(`Waiting ${ms} milliseconds ...`)
+
     core.debug(new Date().toTimeString())
     await wait(parseInt(ms, 10))
     core.debug(new Date().toTimeString())
