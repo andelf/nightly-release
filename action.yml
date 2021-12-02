@@ -7,6 +7,9 @@ inputs:
     required: true
     default: 'nightly'
 
+  release_id:
+    required: true
+
   milliseconds: # change this
     required: true
     description: 'input description here'
