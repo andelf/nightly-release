@@ -23,3 +23,5 @@ jobs:
         with:
           milliseconds: 1000
           tag_name: nightly
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
