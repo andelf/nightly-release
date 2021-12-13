@@ -50,7 +50,7 @@ function run() {
             const tagName = core.getInput('tag_name');
             core.notice(`this tag name is ${tagName}`);
             //const { owner, repo } = context.repo;
-            core.info(`got ${github_1.context}`);
+            core.info(`got ${JSON.stringify(github_1.context)}`);
             const owner = 'andelf';
             const repo = 'nightly-release';
             // get release
@@ -59,7 +59,7 @@ function run() {
                 repo,
                 tag: 'nightly'
             });
-            core.info(`got ${rel}`);
+            core.info(`got ${JSON.stringify(rel)}`);
             // delete release assets
             const { data: release } = rel;
             for (const asset of release.assets) {
@@ -73,7 +73,7 @@ function run() {
             // update or create ref
             let ref;
             try {
-                ref = yield github.rest.git.getRef(Object.assign(Object.assign({}, github_1.context.repo), { ref: `refs/tags/${tagName}` }));
+                ref = yield github.rest.git.getRef(Object.assign(Object.assign({}, github_1.context.repo), { ref: `tags/${tagName}` }));
             }
             catch (e) {
                 // Reference does not exist

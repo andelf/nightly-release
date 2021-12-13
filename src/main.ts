@@ -16,7 +16,7 @@ async function run(): Promise<void> {
     core.notice(`this tag name is ${tagName}`)
 
     //const { owner, repo } = context.repo;
-    core.info(`got ${context}`)
+    core.info(`got ${JSON.stringify(context)}`)
     const owner = 'andelf'
     const repo = 'nightly-release'
 
@@ -26,7 +26,7 @@ async function run(): Promise<void> {
       repo,
       tag: 'nightly'
     })
-    core.info(`got ${rel}`)
+    core.info(`got ${JSON.stringify(rel)}`)
 
     // delete release assets
     const { data: release } = rel
@@ -44,7 +44,7 @@ async function run(): Promise<void> {
     try {
       ref = await github.rest.git.getRef({
         ...context.repo,
-        ref: `refs/tags/${tagName}`
+        ref: `tags/${tagName}`
       })
     } catch (e) {
       // Reference does not exist
