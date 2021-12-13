@@ -59,7 +59,7 @@ async function run(): Promise<void> {
     if (!rel) {
       // create release
       core.info('create rel')
-      await github.rest.repos.createRelease({
+      const ret = await github.rest.repos.createRelease({
         owner,
         repo,
         tag_name: tagName,
@@ -67,10 +67,10 @@ async function run(): Promise<void> {
         draft: true
       })
       core.info('get rel')
-      rel = await github.rest.repos.getReleaseByTag({
+      rel = await github.rest.repos.getRelease({
         owner,
         repo,
-        tag: tagName
+        release_id: ret.data.id
       })
     }
     core.info(`got release ${rel.data.name} by ${rel.data.author.login}`)
