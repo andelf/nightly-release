@@ -109,11 +109,14 @@ async function run() {
         // update or create ref
         let ref;
         try {
-            ref = await github.rest.git.getRef({
+            ref = await github.rest.git
+                .getRef({
                 owner,
                 repo,
                 ref: `tags/${tagName}`
-            });
+            })
+                // eslint-disable-next-line github/no-then
+                .catch(() => null);
         }
         catch (e) {
             // Reference does not exist
