@@ -30,16 +30,39 @@ async function run(): Promise<void> {
       name = name.replace('$$', nightlyName)
     }
 
+    const body = releaseBody()
+
     const filesPatterns = parseInputFiles(core.getInput('files'))
     const globber = await glob.create(filesPatterns.join('\n'))
     const files = await globber.glob()
 
     // get release
-    const rel = await github.rest.repos.getReleaseByTag({
+    let rel = await github.rest.repos.getReleaseByTag({
       owner,
       repo,
       tag: tagName
     })
+    if (!rel) {
+      await github.rest.repos.createRelease({
+        owner,
+        repo,
+        tag_name: tagName,
+        draft: true
+      })
+      rel = await github.rest.repos.getReleaseByTag({
+        owner,
+        repo,
+        tag: tagName
+      })
+    } else {
+      // draft it
+      await github.rest.repos.updateRelease({
+        owner,
+        repo,
+        release_id: rel.data.id,
+        draft: true
+      })
+    }
     core.info(`got release ${rel.data.name} by ${rel.data.author.login}`)
 
     // delete release assets
@@ -75,7 +98,7 @@ async function run(): Promise<void> {
         ref: `tags/${tagName}`,
         sha: GITHUB_SHA!
       })
-    } else {
+    } else if (ref.data.object.sha !== GITHUB_SHA) {
       core.info(
         `update ref tags/${tagName} from ${ref.data.object.sha} to ${GITHUB_SHA}`
       )
@@ -93,7 +116,7 @@ async function run(): Promise<void> {
       repo,
       name,
       release_id: release.id,
-      body: releaseBody(),
+      body,
       draft: isDraft,
       prerelease: isPrerelease
     })
