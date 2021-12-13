@@ -7,12 +7,12 @@ inputs:
     required: true
     default: 'nightly'
 
-  release_id:
-    description: 'The id of the release'
-    required: false
+  #release_id:
+  #  description: 'The id of the release'
+  #  required: false
 
   name:
-    description: 'The name of the release'
+    description: 'The name of the release, use $$ as date placeholder'
     required: false
     default: 'Nightly Release @ $$'
 

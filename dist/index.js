@@ -61,9 +61,9 @@ async function run() {
         const rel = await github.rest.repos.getReleaseByTag({
             owner,
             repo,
-            tag: 'nightly'
+            tag: tagName
         });
-        core.info(`got release ${rel.data.name} by ${rel.data.author.name}`);
+        core.info(`got release ${rel.data.name} by ${rel.data.author.login}`);
         // delete release assets
         const { data: release } = rel;
         for (const asset of release.assets) {
