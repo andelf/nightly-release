@@ -36,13 +36,22 @@ async function run(): Promise<void> {
     const globber = await glob.create(filesPatterns.join('\n'))
     const files = await globber.glob()
 
-    // get release
-    let rel = await github.rest.repos.getReleaseByTag({
-      owner,
-      repo,
-      tag: tagName
-    })
-    if (!rel) {
+    // get release from tag
+    let rel
+    try {
+      rel = await github.rest.repos.getReleaseByTag({
+        owner,
+        repo,
+        tag: tagName
+      })
+      // draft it
+      await github.rest.repos.updateRelease({
+        owner,
+        repo,
+        release_id: rel.data.id,
+        draft: true
+      })
+    } catch (e) {
       await github.rest.repos.createRelease({
         owner,
         repo,
@@ -53,14 +62,6 @@ async function run(): Promise<void> {
         owner,
         repo,
         tag: tagName
-      })
-    } else {
-      // draft it
-      await github.rest.repos.updateRelease({
-        owner,
-        repo,
-        release_id: rel.data.id,
-        draft: true
       })
     }
     core.info(`got release ${rel.data.name} by ${rel.data.author.login}`)
