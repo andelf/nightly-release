@@ -45,7 +45,7 @@ async function run() {
         const github = new utils_1.GitHub({ auth: GITHUB_TOKEN });
         const { owner, repo } = github_1.context.repo;
         const tagName = core.getInput('tag_name');
-        core.notice(`🏷 tag name is ${tagName}`);
+        core.info(`🏷 tag name is ${tagName}`);
         const isDraft = core.getInput('draft') === 'true';
         const isPrerelease = core.getInput('prerelease') === 'true';
         let name = core.getInput('name');
@@ -92,7 +92,7 @@ async function run() {
                 release_id: ret.data.id
             });
         }
-        core.info(`🍻 release ${rel.data.name} by ${rel.data.author.login}`);
+        core.info(`🍻 Release found ${rel.data.name} by ${rel.data.author.login}`);
         // delete release assets
         const { data: release } = rel;
         for (const asset of release.assets) {
@@ -146,7 +146,7 @@ async function run() {
         else {
             core.info(`🏷️ ref tags/${tagName} is ${GITHUB_SHA}, keep it`);
         }
-        core.info(`🤖 update release info`);
+        core.info(`🎬 update release info: ${name}`);
         const ret = await github.rest.repos.updateRelease({
             owner,
             repo,
@@ -222,9 +222,8 @@ run();
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.uploadUrl = exports.readAsset = exports.mimeOrDefault = exports.parseInputFiles = void 0;
-const path_1 = __nccwpck_require__(1017);
-// eslint-disable-next-line sort-imports
 const fs_1 = __nccwpck_require__(7147);
+const path_1 = __nccwpck_require__(1017);
 const mime_1 = __nccwpck_require__(9994);
 const parseInputFiles = (files) => {
     return files.split(/\r?\n/).reduce((acc, line) => acc

@@ -1,6 +1,5 @@
-import { basename } from 'path'
-// eslint-disable-next-line sort-imports
 import { readFileSync, statSync } from 'fs'
+import { basename } from 'path'
 import { getType } from 'mime'
 
 export const parseInputFiles = (files: string): string[] => {

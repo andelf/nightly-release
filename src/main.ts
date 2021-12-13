@@ -17,7 +17,7 @@ async function run(): Promise<void> {
     const { owner, repo } = context.repo
 
     const tagName: string = core.getInput('tag_name')
-    core.notice(`🏷 tag name is ${tagName}`)
+    core.info(`🏷 tag name is ${tagName}`)
 
     const isDraft: boolean = core.getInput('draft') === 'true'
     const isPrerelease: boolean = core.getInput('prerelease') === 'true'
@@ -69,7 +69,7 @@ async function run(): Promise<void> {
         release_id: ret.data.id
       })
     }
-    core.info(`🍻 release ${rel.data.name} by ${rel.data.author.login}`)
+    core.info(`🍻 Release found ${rel.data.name} by ${rel.data.author.login}`)
 
     // delete release assets
     const { data: release } = rel
@@ -126,7 +126,7 @@ async function run(): Promise<void> {
       core.info(`🏷️ ref tags/${tagName} is ${GITHUB_SHA}, keep it`)
     }
 
-    core.info(`🤖 update release info`)
+    core.info(`🎬 update release info: ${name}`)
     const ret = await github.rest.repos.updateRelease({
       owner,
       repo,
