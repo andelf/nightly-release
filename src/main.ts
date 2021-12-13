@@ -13,6 +13,8 @@ async function run(): Promise<void> {
     const github = new GitHub({ auth: process.env.GITHUB_TOKEN })
 
     const tagName: string = core.getInput('tag_name')
+    const isDraft: boolean = core.getInput('draft') === 'true'
+    const isPrerelease: boolean = core.getInput('prerelease') === 'true'
     core.notice(`this tag name is ${tagName}`)
 
     //const { owner, repo } = context.repo;
@@ -78,7 +80,9 @@ async function run(): Promise<void> {
       repo,
       release_id: release.id,
       name: 'Nightly Release @ 2021-12-02',
-      body: 'TODO: auto generated'
+      body: 'TODO: auto generated',
+      draft: isDraft,
+      prerelease: isPrerelease
     })
     core.info(`${JSON.stringify(ret)}`)
     // await github.rest.repos.deleteReleaseAsset({

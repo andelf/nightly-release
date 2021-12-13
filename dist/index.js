@@ -47,6 +47,8 @@ function run() {
             const { GITHUB_SHA } = process.env;
             const github = new utils_1.GitHub({ auth: process.env.GITHUB_TOKEN });
             const tagName = core.getInput('tag_name');
+            const isDraft = core.getInput('draft') === 'true';
+            const isPrerelease = core.getInput('prerelease') === 'true';
             core.notice(`this tag name is ${tagName}`);
             //const { owner, repo } = context.repo;
             core.info(`got context ${JSON.stringify(github_1.context.repo)}`);
@@ -107,7 +109,9 @@ function run() {
                 repo,
                 release_id: release.id,
                 name: 'Nightly Release @ 2021-12-02',
-                body: 'TODO: auto generated'
+                body: 'TODO: auto generated',
+                draft: isDraft,
+                prerelease: isPrerelease
             });
             core.info(`${JSON.stringify(ret)}`);
             // await github.rest.repos.deleteReleaseAsset({
