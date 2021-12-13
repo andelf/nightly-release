@@ -38,6 +38,7 @@ async function run(): Promise<void> {
         asset_id: asset.id
       })
     }
+    core.info(`deleted assets`)
 
     // update or create ref
     let ref
@@ -51,21 +52,21 @@ async function run(): Promise<void> {
       // Reference does not exist
     }
     if (!ref) {
+      core.info(`set ref ${tagName} to ${GITHUB_SHA}`)
       await github.rest.git.createRef({
         owner,
         repo,
         ref: `refs/tags/${tagName}`,
         sha: GITHUB_SHA!
       })
-      core.info(`set ref ${tagName} to ${GITHUB_SHA}`)
     } else {
+      core.info(`update ref ${tagName} to ${GITHUB_SHA}`)
       await github.rest.git.updateRef({
         owner,
         repo,
         ref: `refs/tags/${tagName}`,
         sha: GITHUB_SHA!
       })
-      core.info(`update ref ${tagName} to ${GITHUB_SHA}`)
     }
 
     const ret = await github.rest.repos.updateRelease({

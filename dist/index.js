@@ -70,6 +70,7 @@ function run() {
                     asset_id: asset.id
                 });
             }
+            core.info(`deleted assets`);
             // update or create ref
             let ref;
             try {
@@ -83,22 +84,22 @@ function run() {
                 // Reference does not exist
             }
             if (!ref) {
+                core.info(`set ref ${tagName} to ${GITHUB_SHA}`);
                 yield github.rest.git.createRef({
                     owner,
                     repo,
                     ref: `refs/tags/${tagName}`,
                     sha: GITHUB_SHA
                 });
-                core.info(`set ref ${tagName} to ${GITHUB_SHA}`);
             }
             else {
+                core.info(`update ref ${tagName} to ${GITHUB_SHA}`);
                 yield github.rest.git.updateRef({
                     owner,
                     repo,
                     ref: `refs/tags/${tagName}`,
                     sha: GITHUB_SHA
                 });
-                core.info(`update ref ${tagName} to ${GITHUB_SHA}`);
             }
             const ret = yield github.rest.repos.updateRelease({
                 owner,
