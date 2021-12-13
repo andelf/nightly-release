@@ -8,15 +8,16 @@ inputs:
     default: 'nightly'
 
   release_id:
-    required: true
+    description: 'The id of the release'
+    required: false
 
   name:
     description: 'The name of the release'
     required: false
 
-  commitish:
-    description: 'Any branch or commit SHA the Git tag is created from, unused if the Git tag already exists. Default: SHA of current commit'
-    required: false
+  #commitish:
+  #  description: 'Any branch or commit SHA the Git tag is created from, unused if the Git tag already exists. Default: SHA of current commit'
+  #  required: false
 
   body:
     description: "Note-worthy description of changes in release"
