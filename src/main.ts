@@ -17,8 +17,13 @@ async function run(): Promise<void> {
     const { owner, repo } = context.repo
 
     const tagName: string = core.getInput('tag_name')
-    const isDraft: boolean = core.getInput('draft') === 'true'
+    let isDraft: boolean = core.getInput('draft') === 'true'
     const isPrerelease: boolean = core.getInput('prerelease') === 'true'
+
+    if (isDraft) {
+      core.warning('Deprecated, draft must be turned off for nightly build.')
+      isDraft = false
+    }
 
     let name = core.getInput('name')
     if (name.includes('$$')) {

@@ -24,7 +24,7 @@ inputs:
     required: false
 
   draft:
-    description: "Creates a draft release. Defaults to false"
+    description: "Deprecated, use 'prerelease' instead"
     required: false
     default: false
   prerelease:

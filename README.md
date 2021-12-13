@@ -4,7 +4,7 @@
 
 # andelf/nightly-release
 
-This action is use to update a nightly release.
+This action is use to create/update a nightly release.
 
 Change tag to newest.
 Remove old assets, and upload new ones.

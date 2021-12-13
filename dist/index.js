@@ -45,8 +45,12 @@ async function run() {
         const github = new utils_1.GitHub({ auth: GITHUB_TOKEN });
         const { owner, repo } = github_1.context.repo;
         const tagName = core.getInput('tag_name');
-        const isDraft = core.getInput('draft') === 'true';
+        let isDraft = core.getInput('draft') === 'true';
         const isPrerelease = core.getInput('prerelease') === 'true';
+        if (isDraft) {
+            core.warning('Deprecated, draft must be turned off for nightly build.');
+            isDraft = false;
+        }
         let name = core.getInput('name');
         if (name.includes('$$')) {
             const today = new Date();
