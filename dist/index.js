@@ -75,6 +75,10 @@ async function run() {
             });
         }
         catch (e) {
+            // release 404
+        }
+        if (!rel) {
+            // create release
             await github.rest.repos.createRelease({
                 owner,
                 repo,
