@@ -60,6 +60,7 @@ async function run(): Promise<void> {
         owner,
         repo,
         tag_name: tagName,
+        target_commitish: GITHUB_SHA,
         draft: true
       })
       rel = await github.rest.repos.getReleaseByTag({
