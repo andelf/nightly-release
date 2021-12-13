@@ -20,10 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: |
-          touch test.txt
+          echo OK > test.txt
           date > test-release.txt
           uptime > info.txt
           md5sum *.txt > MD5SUMS
+      - run: ls -lah
       - uses: ./
         with:
           # milliseconds: 1000
