@@ -73,7 +73,7 @@ function run() {
             // update or create ref
             let ref;
             try {
-                ref = yield github.rest.git.getRef(Object.assign(Object.assign({}, github_1.context.repo), { ref: `tags/${tagName}` }));
+                ref = yield github.rest.git.getRef(Object.assign(Object.assign({}, github_1.context.repo), { ref: `refs/tags/${tagName}` }));
             }
             catch (e) {
                 // Reference does not exist

@@ -44,7 +44,7 @@ async function run(): Promise<void> {
     try {
       ref = await github.rest.git.getRef({
         ...context.repo,
-        ref: `tags/${tagName}`
+        ref: `refs/tags/${tagName}`
       })
     } catch (e) {
       // Reference does not exist
