@@ -85,9 +85,9 @@ async function run() {
                 repo,
                 tag_name: tagName,
                 target_commitish: GITHUB_SHA,
+                name: 'Nightly Release',
                 draft: true
             });
-            core.debug(`fetch release ${JSON.stringify(ret.data)}`);
             rel = await github.rest.repos.getRelease({
                 owner,
                 repo,
@@ -109,6 +109,7 @@ async function run() {
             catch (e) {
                 const error = e;
                 core.warning(`failed to delete ${asset.name} ${error.name} ${error.status}`);
+                throw e;
             }
         }
         if (release.assets.length > 0) {
@@ -196,7 +197,8 @@ const upload = async (github, owner, repo, url, path) => {
     });
     const json = (await resp.json());
     if (resp.status !== 201) {
-        throw new Error(`Failed to upload release asset ${name}. received status code ${resp.status}\n${json.message}\n${JSON.stringify(json.errors)}`);
+        throw new Error(`Failed to upload release asset ${name}. received status code
+      ${resp.status}\n${json.message}\n${JSON.stringify(json.errors)}`);
     }
     return json;
 };
