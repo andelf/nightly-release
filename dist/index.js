@@ -61,11 +61,13 @@ async function run() {
         // get release from tag
         let rel;
         try {
+            core.info('get rel');
             rel = await github.rest.repos.getReleaseByTag({
                 owner,
                 repo,
                 tag: tagName
             });
+            core.info('draft rel');
             // draft it
             await github.rest.repos.updateRelease({
                 owner,
@@ -79,6 +81,7 @@ async function run() {
         }
         if (!rel) {
             // create release
+            core.info('create rel');
             await github.rest.repos.createRelease({
                 owner,
                 repo,
@@ -86,6 +89,7 @@ async function run() {
                 target_commitish: GITHUB_SHA,
                 draft: true
             });
+            core.info('get rel');
             rel = await github.rest.repos.getReleaseByTag({
                 owner,
                 repo,
@@ -109,14 +113,11 @@ async function run() {
         // update or create ref
         let ref;
         try {
-            ref = await github.rest.git
-                .getRef({
+            ref = await github.rest.git.getRef({
                 owner,
                 repo,
                 ref: `tags/${tagName}`
-            })
-                // eslint-disable-next-line github/no-then
-                .catch(() => null);
+            });
         }
         catch (e) {
             // Reference does not exist
