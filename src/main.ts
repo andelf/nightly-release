@@ -14,11 +14,10 @@ async function run(): Promise<void> {
     const { GITHUB_SHA } = process.env
     const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.INPUT_TOKEN
     const github = new GitHub({ auth: GITHUB_TOKEN })
-    core.info(`got context ${JSON.stringify(context.repo)}`)
     const { owner, repo } = context.repo
 
     const tagName: string = core.getInput('tag_name')
-    core.notice(`tag name is ${tagName}`)
+    core.notice(`🏷 tag name is ${tagName}`)
 
     const isDraft: boolean = core.getInput('draft') === 'true'
     const isPrerelease: boolean = core.getInput('prerelease') === 'true'
@@ -56,7 +55,6 @@ async function run(): Promise<void> {
       // release 404
     }
     if (!rel) {
-      core.info('create draft rel')
       const ret = await github.rest.repos.createRelease({
         owner,
         repo,
@@ -71,7 +69,7 @@ async function run(): Promise<void> {
         release_id: ret.data.id
       })
     }
-    core.info(`got release ${rel.data.name} by ${rel.data.author.login}`)
+    core.info(`release ${rel.data.name} by ${rel.data.author.login}`)
 
     // delete release assets
     const { data: release } = rel
@@ -86,13 +84,13 @@ async function run(): Promise<void> {
       } catch (e) {
         const error = e as any
         core.warning(
-          `failed to delete ${asset.name} ${error.name} ${error.status}`
+          `❌ failed to delete ${asset.name} ${error.name} ${error.status}`
         )
         throw e
       }
     }
     if (release.assets.length > 0) {
-      core.info(`❌ deleted ${release.assets.length} assets`)
+      core.info(`🗑️ deleted ${release.assets.length} assets`)
     }
 
     // update or create ref
@@ -107,7 +105,7 @@ async function run(): Promise<void> {
       // Reference does not exist
     }
     if (!ref) {
-      core.info(`set ref tags/${tagName} to ${GITHUB_SHA}`)
+      core.info(`🏷️ set ref tags/${tagName} to ${GITHUB_SHA}`)
       await github.rest.git.createRef({
         owner,
         repo,
@@ -116,7 +114,7 @@ async function run(): Promise<void> {
       })
     } else if (ref.data.object.sha !== GITHUB_SHA) {
       core.info(
-        `update ref tags/${tagName} from ${ref.data.object.sha} to ${GITHUB_SHA}`
+        `🏷️ update ref tags/${tagName} from ${ref.data.object.sha} to ${GITHUB_SHA}`
       )
       await github.rest.git.updateRef({
         owner,
@@ -124,6 +122,8 @@ async function run(): Promise<void> {
         ref: `tags/${tagName}`,
         sha: GITHUB_SHA!
       })
+    } else {
+      core.info(`🏷️ ref tags/${tagName} is ${GITHUB_SHA}, keep it`)
     }
 
     core.info(`update release info`)
