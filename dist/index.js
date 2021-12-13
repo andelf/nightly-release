@@ -95,7 +95,7 @@ async function run() {
         // delete release assets
         const { data: release } = rel;
         if (release.assets.length > 0) {
-            await core.group('Delete old release assets', async () => {
+            await core.group(`Delete ${release.assets.length} old release assets`, async () => {
                 for (const asset of release.assets) {
                     core.info(`deleting ${asset.name}`);
                     try {
@@ -161,12 +161,14 @@ async function run() {
             core.warning(`🤔 ${files} does not include valid file`);
         }
         else {
-            const assets = await Promise.all(files.map(async (path) => {
-                const json = await upload(github, owner, repo, (0, util_1.uploadUrl)(ret.data.upload_url), path);
-                delete json.uploader;
-                return json;
-            }));
-            core.setOutput('assets', assets);
+            await core.group(`Upload ${files.length} release assets`, async () => {
+                const assets = await Promise.all(files.map(async (path) => {
+                    const json = await upload(github, owner, repo, (0, util_1.uploadUrl)(ret.data.upload_url), path);
+                    delete json.uploader;
+                    return json;
+                }));
+                core.setOutput('assets', assets);
+            });
         }
         core.info(`🎉 Release ready at ${ret.data.html_url}`);
         core.setOutput('url', ret.data.html_url);

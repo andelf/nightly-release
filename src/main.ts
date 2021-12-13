@@ -72,25 +72,28 @@ async function run(): Promise<void> {
     // delete release assets
     const { data: release } = rel
     if (release.assets.length > 0) {
-      await core.group('Delete old release assets', async () => {
-        for (const asset of release.assets) {
-          core.info(`deleting ${asset.name}`)
-          try {
-            await github.rest.repos.deleteReleaseAsset({
-              owner,
-              repo,
-              asset_id: asset.id
-            })
-          } catch (e) {
-            const error = e as any
-            core.warning(
-              `❌ failed to delete ${asset.name} ${error.name} ${error.status}`
-            )
-            throw e
+      await core.group(
+        `Delete ${release.assets.length} old release assets`,
+        async () => {
+          for (const asset of release.assets) {
+            core.info(`deleting ${asset.name}`)
+            try {
+              await github.rest.repos.deleteReleaseAsset({
+                owner,
+                repo,
+                asset_id: asset.id
+              })
+            } catch (e) {
+              const error = e as any
+              core.warning(
+                `❌ failed to delete ${asset.name} ${error.name} ${error.status}`
+              )
+              throw e
+            }
           }
+          core.info(`🗑️ deleted ${release.assets.length} assets`)
         }
-        core.info(`🗑️ deleted ${release.assets.length} assets`)
-      })
+      )
     }
 
     // update or create ref
@@ -140,20 +143,22 @@ async function run(): Promise<void> {
     if (files.length === 0) {
       core.warning(`🤔 ${files} does not include valid file`)
     } else {
-      const assets = await Promise.all(
-        files.map(async path => {
-          const json = await upload(
-            github,
-            owner,
-            repo,
-            uploadUrl(ret.data.upload_url),
-            path
-          )
-          delete json.uploader
-          return json
-        })
-      )
-      core.setOutput('assets', assets)
+      await core.group(`Upload ${files.length} release assets`, async () => {
+        const assets = await Promise.all(
+          files.map(async path => {
+            const json = await upload(
+              github,
+              owner,
+              repo,
+              uploadUrl(ret.data.upload_url),
+              path
+            )
+            delete json.uploader
+            return json
+          })
+        )
+        core.setOutput('assets', assets)
+      })
     }
     core.info(`🎉 Release ready at ${ret.data.html_url}`)
 
