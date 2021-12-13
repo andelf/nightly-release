@@ -5,8 +5,6 @@ import * as core from '@actions/core'
 import { GitHub } from '@actions/github/lib/utils'
 import { context } from '@actions/github'
 
-import { wait } from './wait'
-
 async function run(): Promise<void> {
   try {
     const { GITHUB_SHA } = process.env
@@ -90,7 +88,6 @@ async function run(): Promise<void> {
     //  repo: 'nightly-release',
     //
     //})
-
 
     core.setOutput('time', new Date().toTimeString())
   } catch (error) {
