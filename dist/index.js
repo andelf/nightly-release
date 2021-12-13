@@ -71,7 +71,13 @@ function run() {
                 });
             }
             // update or create ref
-            const ref = yield github.rest.git.getRef(Object.assign(Object.assign({}, github_1.context.repo), { ref: `tags/${tagName}` }));
+            let ref;
+            try {
+                ref = yield github.rest.git.getRef(Object.assign(Object.assign({}, github_1.context.repo), { ref: `tags/${tagName}` }));
+            }
+            catch (e) {
+                // Reference does not exist
+            }
             if (!ref) {
                 yield github.rest.git.createRef(Object.assign(Object.assign({}, github_1.context.repo), { ref: `refs/tags/${tagName}`, sha: GITHUB_SHA }));
                 core.info(`set ref ${tagName} to ${GITHUB_SHA}`);
