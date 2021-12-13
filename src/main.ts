@@ -15,12 +15,10 @@ async function run(): Promise<void> {
     const isPrerelease: boolean = core.getInput('prerelease') === 'true'
     let name = core.getInput('name')
 
+    core.notice(`tag name is ${tagName}`)
     if (name.includes('$$')) {
-      core.notice(`tag name is ${tagName}`)
-      const nightlyName = new Date()
-        .toISOString()
-        .split('T')[0]
-        .replaceAll('-', '')
+      const today = new Date()
+      const nightlyName = today.toISOString().split('T')[0].replaceAll('-', '')
 
       name = name.replace('$$', nightlyName)
     }

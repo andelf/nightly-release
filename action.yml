@@ -46,5 +46,5 @@ inputs:
 env:
   "GITHUB_TOKEN": "As provided by Github Actions"
 runs:
-  using: 'node12'
+  using: 'node16'
   main: 'dist/index.js'
