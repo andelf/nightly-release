@@ -97,11 +97,17 @@ async function run() {
         const { data: release } = rel;
         for (const asset of release.assets) {
             core.info(`deleting ${asset.name}`);
-            await github.rest.repos.deleteReleaseAsset({
-                owner,
-                repo,
-                asset_id: asset.id
-            });
+            try {
+                await github.rest.repos.deleteReleaseAsset({
+                    owner,
+                    repo,
+                    asset_id: asset.id
+                });
+            }
+            catch (e) {
+                const error = e;
+                core.warning(`failed to delete ${asset.name} ${error.name} ${error.status}`);
+            }
         }
         if (release.assets.length > 0) {
             core.info(`❌ deleted ${release.assets.length} assets`);
