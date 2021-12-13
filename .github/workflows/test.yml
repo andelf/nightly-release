@@ -19,6 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - run: |
+          touch test.txt
+          date > test-release.txt
+          md5sum * > MD5SUMS
       - uses: ./
         with:
           # milliseconds: 1000
@@ -26,6 +30,10 @@ jobs:
           name: 'Desktop App Nightly Relase $$'
           draft: false
           prerelease: true
+          files: |
+            MD5SUMS
+            test.txt
+            test-release.txt
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
