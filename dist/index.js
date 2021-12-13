@@ -88,7 +88,7 @@ function run() {
                 yield github.rest.git.createRef({
                     owner,
                     repo,
-                    ref: `refs/tags/${tagName}`,
+                    ref: `tags/${tagName}`,
                     sha: GITHUB_SHA
                 });
             }
@@ -97,10 +97,11 @@ function run() {
                 yield github.rest.git.updateRef({
                     owner,
                     repo,
-                    ref: `refs/tags/${tagName}`,
+                    ref: `tags/${tagName}`,
                     sha: GITHUB_SHA
                 });
             }
+            core.info(`update release info`);
             const ret = yield github.rest.repos.updateRelease({
                 owner,
                 repo,

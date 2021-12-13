@@ -56,7 +56,7 @@ async function run(): Promise<void> {
       await github.rest.git.createRef({
         owner,
         repo,
-        ref: `refs/tags/${tagName}`,
+        ref: `tags/${tagName}`,
         sha: GITHUB_SHA!
       })
     } else {
@@ -64,11 +64,12 @@ async function run(): Promise<void> {
       await github.rest.git.updateRef({
         owner,
         repo,
-        ref: `refs/tags/${tagName}`,
+        ref: `tags/${tagName}`,
         sha: GITHUB_SHA!
       })
     }
 
+    core.info(`update release info`)
     const ret = await github.rest.repos.updateRelease({
       owner,
       repo,
