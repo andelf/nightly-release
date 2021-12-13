@@ -35,26 +35,66 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 const core = __importStar(__nccwpck_require__(2186));
 // import * as github from '@actions/github'
 // import * as glob from '@actions/glob'
 const utils_1 = __nccwpck_require__(3030);
-// import { context } from '@actions/github'
+const github_1 = __nccwpck_require__(5438);
 const wait_1 = __nccwpck_require__(5817);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
+            const { GITHUB_SHA } = process.env;
             const github = new utils_1.GitHub({ auth: process.env.GITHUB_TOKEN });
+            const tagName = core.getInput('tag_name');
+            core.notice(`this tag name is ${tagName}`);
+            //const { owner, repo } = context.repo;
+            core.info(`got ${github_1.context}`);
+            const owner = 'andelf';
+            const repo = 'nightly-release';
+            // get release
             const rel = yield github.rest.repos.getReleaseByTag({
-                owner: 'andelf',
-                repo: 'nightly-release',
+                owner,
+                repo,
                 tag: 'nightly'
             });
             core.info(`got ${rel}`);
+            // delete release assets
+            const { data: release } = rel;
+            for (const asset of release.assets) {
+                core.info(`found ${asset.name}`);
+                yield github.rest.repos.deleteReleaseAsset({
+                    owner,
+                    repo,
+                    asset_id: asset.id
+                });
+            }
+            // update or create ref
+            const ref = yield github.rest.git.getRef(Object.assign(Object.assign({}, github_1.context.repo), { ref: `tags/${tagName}` }));
+            if (!ref) {
+                yield github.rest.git.createRef(Object.assign(Object.assign({}, github_1.context.repo), { ref: `refs/tags/${tagName}`, sha: GITHUB_SHA }));
+                core.info(`set ref ${tagName} to ${GITHUB_SHA}`);
+            }
+            else {
+                yield github.rest.git.updateRef(Object.assign(Object.assign({}, github_1.context.repo), { ref: `refs/tags/${tagName}`, sha: GITHUB_SHA }));
+                core.info(`update ref ${tagName} to ${GITHUB_SHA}`);
+            }
+            const ret = yield github.rest.repos.updateRelease({
+                owner,
+                repo,
+                release_id: release.id,
+                name: 'Nightly Release @ 2021-12-02',
+                body: 'TODO: auto generated'
+            });
+            core.info(`${ret}`);
+            // await github.rest.repos.deleteReleaseAsset({
+            //  owner: 'andelf',
+            //  repo: 'nightly-release',
+            //
+            //})
             const ms = core.getInput('milliseconds');
             core.debug(`Waiting ${ms} milliseconds ...`); // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true
-            const tagName = core.getInput('tag_name');
-            core.notice(`this tag name is ${tagName}`);
             core.info(`Waiting ${ms} milliseconds ...`);
             core.debug(new Date().toTimeString());
             yield (0, wait_1.wait)(parseInt(ms, 10));
@@ -760,6 +800,49 @@ class Context {
 }
 exports.Context = Context;
 //# sourceMappingURL=context.js.map
+
+/***/ }),
+
+/***/ 5438:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.getOctokit = exports.context = void 0;
+const Context = __importStar(__nccwpck_require__(4087));
+const utils_1 = __nccwpck_require__(3030);
+exports.context = new Context.Context();
+/**
+ * Returns a hydrated octokit ready to use for GitHub Actions
+ *
+ * @param     token    the repo PAT or GITHUB_TOKEN
+ * @param     options  other options to set
+ */
+function getOctokit(token, options) {
+    return new utils_1.GitHub(utils_1.getOctokitOptions(token, options));
+}
+exports.getOctokit = getOctokit;
+//# sourceMappingURL=github.js.map
 
 /***/ }),
 
