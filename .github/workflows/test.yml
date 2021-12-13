@@ -25,6 +25,9 @@ jobs:
           uptime > info.txt
           md5sum *.txt > MD5SUMS
       - run: ls -lah
+      - run: |
+          echo '# Commits Made' > RELEASE-NOTES.txt
+          git log --oneline --since "`date  -d '-d day'`" > RELEASE-NOTES.txt
       - uses: ./
         with:
           # milliseconds: 1000
@@ -32,6 +35,7 @@ jobs:
           name: 'Desktop App Nightly Relase $$'
           draft: false
           prerelease: true
+          body_path: RELEASE-NOTES.txt
           files: |
             MD5SUMS
             test.txt

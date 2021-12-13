@@ -37,6 +37,7 @@ const util_1 = __nccwpck_require__(4024);
 const utils_1 = __nccwpck_require__(3030);
 const github_1 = __nccwpck_require__(5438);
 const node_fetch_1 = __importDefault(__nccwpck_require__(7580));
+const fs_1 = __nccwpck_require__(7147);
 async function run() {
     try {
         const { GITHUB_SHA } = process.env;
@@ -56,6 +57,7 @@ async function run() {
         const filesPatterns = (0, util_1.parseInputFiles)(core.getInput('files'));
         const globber = await glob.create(filesPatterns.join('\n'));
         const files = await globber.glob();
+        const body = releaseBody();
         // get release
         const rel = await github.rest.repos.getReleaseByTag({
             owner,
@@ -112,11 +114,10 @@ async function run() {
             repo,
             name,
             release_id: release.id,
-            body: 'TODO: auto generated',
+            body,
             draft: isDraft,
             prerelease: isPrerelease
         });
-        core.info(`${JSON.stringify(ret)}`);
         if (files.length === 0) {
             core.warning(`🤔 ${files} does not include valid file.`);
         }
@@ -162,6 +163,12 @@ const upload = async (github, owner, repo, url, path) => {
         throw new Error(`Failed to upload release asset ${name}. received status code ${resp.status}\n${json.message}\n${JSON.stringify(json.errors)}`);
     }
     return json;
+};
+const releaseBody = () => {
+    const bodyPath = core.getInput('body_path');
+    return ((bodyPath && (0, fs_1.readFileSync)(bodyPath).toString('utf8')) ||
+        core.getInput('body') ||
+        'No release body provided.');
 };
 run();
 

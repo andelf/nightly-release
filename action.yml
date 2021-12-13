@@ -23,9 +23,9 @@ inputs:
   body:
     description: "Note-worthy description of changes in release"
     required: false
-  #body_path:
-  #  description: "Path to load note-worthy description of changes in release from"
-  #  required: false
+  body_path:
+    description: "Path to load note-worthy description of changes in release from"
+    required: false
 
   files:
     description: "Newline-delimited list of path globs for asset files to upload"

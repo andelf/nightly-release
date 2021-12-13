@@ -7,6 +7,7 @@ import { GitHub } from '@actions/github/lib/utils'
 import { Octokit } from '@octokit/core'
 import { context } from '@actions/github'
 import fetch from 'node-fetch'
+import { readFileSync } from 'fs'
 
 async function run(): Promise<void> {
   try {
@@ -32,6 +33,8 @@ async function run(): Promise<void> {
     const filesPatterns = parseInputFiles(core.getInput('files'))
     const globber = await glob.create(filesPatterns.join('\n'))
     const files = await globber.glob()
+
+    const body = releaseBody()
 
     // get release
     const rel = await github.rest.repos.getReleaseByTag({
@@ -92,11 +95,10 @@ async function run(): Promise<void> {
       repo,
       name,
       release_id: release.id,
-      body: 'TODO: auto generated',
+      body,
       draft: isDraft,
       prerelease: isPrerelease
     })
-    core.info(`${JSON.stringify(ret)}`)
 
     if (files.length === 0) {
       core.warning(`🤔 ${files} does not include valid file.`)
@@ -159,6 +161,15 @@ const upload = async (
     )
   }
   return json
+}
+
+const releaseBody = (): string => {
+  const bodyPath = core.getInput('body_path')
+  return (
+    (bodyPath && readFileSync(bodyPath).toString('utf8')) ||
+    core.getInput('body') ||
+    'No release body provided.'
+  )
 }
 
 run()
