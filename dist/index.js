@@ -127,7 +127,7 @@ async function run() {
             await github.rest.git.createRef({
                 owner,
                 repo,
-                ref: `tags/${tagName}`,
+                ref: `refs/tags/${tagName}`,
                 sha: GITHUB_SHA
             });
         }
