@@ -57,7 +57,6 @@ async function run() {
         const filesPatterns = (0, util_1.parseInputFiles)(core.getInput('files'));
         const globber = await glob.create(filesPatterns.join('\n'));
         const files = await globber.glob();
-        const body = releaseBody();
         // get release
         const rel = await github.rest.repos.getReleaseByTag({
             owner,
@@ -114,7 +113,7 @@ async function run() {
             repo,
             name,
             release_id: release.id,
-            body,
+            body: releaseBody(),
             draft: isDraft,
             prerelease: isPrerelease
         });

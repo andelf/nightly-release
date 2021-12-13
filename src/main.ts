@@ -34,8 +34,6 @@ async function run(): Promise<void> {
     const globber = await glob.create(filesPatterns.join('\n'))
     const files = await globber.glob()
 
-    const body = releaseBody()
-
     // get release
     const rel = await github.rest.repos.getReleaseByTag({
       owner,
@@ -95,7 +93,7 @@ async function run(): Promise<void> {
       repo,
       name,
       release_id: release.id,
-      body,
+      body: releaseBody(),
       draft: isDraft,
       prerelease: isPrerelease
     })

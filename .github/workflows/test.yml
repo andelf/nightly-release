@@ -27,7 +27,7 @@ jobs:
       - run: ls -lah
       - run: |
           echo '# Commits Made' > RELEASE-NOTES.txt
-          git log --oneline --since "`date  -d '-d day'`" > RELEASE-NOTES.txt
+          git log --oneline --since "`date  -d '-d day'`" >> RELEASE-NOTES.txt
       - uses: ./
         with:
           # milliseconds: 1000
