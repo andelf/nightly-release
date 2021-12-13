@@ -76,7 +76,7 @@ async function run(): Promise<void> {
         `Delete ${release.assets.length} old release assets`,
         async () => {
           for (const asset of release.assets) {
-            core.info(`deleting ${asset.name}`)
+            core.info(`❌ deleting ${asset.name}`)
             try {
               await github.rest.repos.deleteReleaseAsset({
                 owner,
@@ -86,7 +86,7 @@ async function run(): Promise<void> {
             } catch (e) {
               const error = e as any
               core.warning(
-                `❌ failed to delete ${asset.name} ${error.name} ${error.status}`
+                `failed to delete ${asset.name} ${error.name} ${error.status}`
               )
               throw e
             }
@@ -143,22 +143,25 @@ async function run(): Promise<void> {
     if (files.length === 0) {
       core.warning(`🤔 ${files} does not include valid file`)
     } else {
-      await core.group(`Upload ${files.length} release assets`, async () => {
-        const assets = await Promise.all(
-          files.map(async path => {
-            const json = await upload(
-              github,
-              owner,
-              repo,
-              uploadUrl(ret.data.upload_url),
-              path
-            )
-            delete json.uploader
-            return json
-          })
-        )
-        core.setOutput('assets', assets)
-      })
+      await core.group(
+        `Upload ${files.length} new release assets`,
+        async () => {
+          const assets = await Promise.all(
+            files.map(async path => {
+              const json = await upload(
+                github,
+                owner,
+                repo,
+                uploadUrl(ret.data.upload_url),
+                path
+              )
+              delete json.uploader
+              return json
+            })
+          )
+          core.setOutput('assets', assets)
+        }
+      )
     }
     core.info(`🎉 Release ready at ${ret.data.html_url}`)
 
