@@ -69,7 +69,7 @@ async function run(): Promise<void> {
         release_id: ret.data.id
       })
     }
-    core.info(`release ${rel.data.name} by ${rel.data.author.login}`)
+    core.info(`🍻 release ${rel.data.name} by ${rel.data.author.login}`)
 
     // delete release assets
     const { data: release } = rel
@@ -126,12 +126,12 @@ async function run(): Promise<void> {
       core.info(`🏷️ ref tags/${tagName} is ${GITHUB_SHA}, keep it`)
     }
 
-    core.info(`update release info`)
+    core.info(`🤖 update release info`)
     const ret = await github.rest.repos.updateRelease({
       owner,
       repo,
-      name,
       release_id: release.id,
+      name,
       body,
       draft: isDraft,
       prerelease: isPrerelease
@@ -178,15 +178,14 @@ const upload = async (
 ): Promise<any> => {
   const { name, size, mime, data: body } = readAsset(path)
   core.info(`⬆️ Uploading ${name}...`)
+  const AUTH_TOKEN = process.env.GITHUB_TOKEN || process.env.INPUT_TOKEN
   const endpoint = new URL(url)
   endpoint.searchParams.append('name', name)
   const resp = await fetch(endpoint.toString(), {
     headers: {
       'content-length': `${size}`,
       'content-type': mime,
-      authorization: `token ${
-        process.env.GITHUB_TOKEN || process.env.INPUT_TOKEN
-      }`
+      authorization: `token ${AUTH_TOKEN}`
     },
     method: 'POST',
     body
