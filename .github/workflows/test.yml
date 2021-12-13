@@ -30,9 +30,8 @@ jobs:
       - run: ls -lah
       - uses: ./
         with:
-          # milliseconds: 1000
-          tag_name: nightly3
-          name: 'Desktop App Nightly3 Relase $$'
+          tag_name: nightly
+          name: 'Desktop App Nightly Relase $$'
           draft: false
           prerelease: true
           body_path: RELEASE-NOTES.txt
@@ -40,7 +39,6 @@ jobs:
             MD5SUMS
             test.txt
             test-release.txt
-            RELEASE-NOTES.txt
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
