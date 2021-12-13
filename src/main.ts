@@ -16,7 +16,7 @@ async function run(): Promise<void> {
     core.notice(`this tag name is ${tagName}`)
 
     //const { owner, repo } = context.repo;
-    core.info(`got ${JSON.stringify(context)}`)
+    core.info(`got context ${JSON.stringify(context)}`)
     const owner = 'andelf'
     const repo = 'nightly-release'
 
@@ -26,7 +26,7 @@ async function run(): Promise<void> {
       repo,
       tag: 'nightly'
     })
-    core.info(`got ${JSON.stringify(rel)}`)
+    core.info(`got release ${JSON.stringify(rel)}`)
 
     // delete release assets
     const { data: release } = rel
@@ -43,7 +43,8 @@ async function run(): Promise<void> {
     let ref
     try {
       ref = await github.rest.git.getRef({
-        ...context.repo,
+        owner,
+        repo,
         ref: `tags/${tagName}`
       })
     } catch (e) {
@@ -51,14 +52,16 @@ async function run(): Promise<void> {
     }
     if (!ref) {
       await github.rest.git.createRef({
-        ...context.repo,
+        owner,
+        repo,
         ref: `refs/tags/${tagName}`,
         sha: GITHUB_SHA!
       })
       core.info(`set ref ${tagName} to ${GITHUB_SHA}`)
     } else {
       await github.rest.git.updateRef({
-        ...context.repo,
+        owner,
+        repo,
         ref: `refs/tags/${tagName}`,
         sha: GITHUB_SHA!
       })

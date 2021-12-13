@@ -50,7 +50,7 @@ function run() {
             const tagName = core.getInput('tag_name');
             core.notice(`this tag name is ${tagName}`);
             //const { owner, repo } = context.repo;
-            core.info(`got ${JSON.stringify(github_1.context)}`);
+            core.info(`got context ${JSON.stringify(github_1.context)}`);
             const owner = 'andelf';
             const repo = 'nightly-release';
             // get release
@@ -59,7 +59,7 @@ function run() {
                 repo,
                 tag: 'nightly'
             });
-            core.info(`got ${JSON.stringify(rel)}`);
+            core.info(`got release ${JSON.stringify(rel)}`);
             // delete release assets
             const { data: release } = rel;
             for (const asset of release.assets) {
@@ -73,17 +73,31 @@ function run() {
             // update or create ref
             let ref;
             try {
-                ref = yield github.rest.git.getRef(Object.assign(Object.assign({}, github_1.context.repo), { ref: `tags/${tagName}` }));
+                ref = yield github.rest.git.getRef({
+                    owner,
+                    repo,
+                    ref: `tags/${tagName}`
+                });
             }
             catch (e) {
                 // Reference does not exist
             }
             if (!ref) {
-                yield github.rest.git.createRef(Object.assign(Object.assign({}, github_1.context.repo), { ref: `refs/tags/${tagName}`, sha: GITHUB_SHA }));
+                yield github.rest.git.createRef({
+                    owner,
+                    repo,
+                    ref: `refs/tags/${tagName}`,
+                    sha: GITHUB_SHA
+                });
                 core.info(`set ref ${tagName} to ${GITHUB_SHA}`);
             }
             else {
-                yield github.rest.git.updateRef(Object.assign(Object.assign({}, github_1.context.repo), { ref: `refs/tags/${tagName}`, sha: GITHUB_SHA }));
+                yield github.rest.git.updateRef({
+                    owner,
+                    repo,
+                    ref: `refs/tags/${tagName}`,
+                    sha: GITHUB_SHA
+                });
                 core.info(`update ref ${tagName} to ${GITHUB_SHA}`);
             }
             const ret = yield github.rest.repos.updateRelease({
