@@ -22,7 +22,8 @@ jobs:
       - run: |
           touch test.txt
           date > test-release.txt
-          md5sum * > MD5SUMS
+          uptime > info.txt
+          md5sum *.txt > MD5SUMS
       - uses: ./
         with:
           # milliseconds: 1000
