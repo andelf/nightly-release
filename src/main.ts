@@ -39,13 +39,11 @@ async function run(): Promise<void> {
     // get release from tag
     let rel
     try {
-      core.info('get rel')
       rel = await github.rest.repos.getReleaseByTag({
         owner,
         repo,
         tag: tagName
       })
-      core.info('draft rel')
       // draft it
       await github.rest.repos.updateRelease({
         owner,
@@ -57,8 +55,7 @@ async function run(): Promise<void> {
       // release 404
     }
     if (!rel) {
-      // create release
-      core.info('create rel')
+      core.info('create draft rel')
       const ret = await github.rest.repos.createRelease({
         owner,
         repo,
@@ -66,7 +63,6 @@ async function run(): Promise<void> {
         target_commitish: GITHUB_SHA,
         draft: true
       })
-      core.info('get rel')
       rel = await github.rest.repos.getRelease({
         owner,
         repo,
@@ -86,7 +82,7 @@ async function run(): Promise<void> {
       })
     }
     if (release.assets.length > 0) {
-      core.info(`deleted ${release.assets.length} assets`)
+      core.info(`❌ deleted ${release.assets.length} assets`)
     }
 
     // update or create ref
