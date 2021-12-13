@@ -16,9 +16,8 @@ async function run(): Promise<void> {
     core.notice(`this tag name is ${tagName}`)
 
     //const { owner, repo } = context.repo;
-    core.info(`got context ${JSON.stringify(context)}`)
-    const owner = 'andelf'
-    const repo = 'nightly-release'
+    core.info(`got context ${JSON.stringify(context.repo)}`)
+    const { owner, repo } = context.repo
 
     // get release
     const rel = await github.rest.repos.getReleaseByTag({
@@ -26,19 +25,21 @@ async function run(): Promise<void> {
       repo,
       tag: 'nightly'
     })
-    core.info(`got release ${JSON.stringify(rel)}`)
+    core.info(`got release ${rel.data.name} by ${rel.data.author}`)
 
     // delete release assets
     const { data: release } = rel
     for (const asset of release.assets) {
-      core.info(`found ${asset.name}`)
+      core.info(`deleting ${asset.name}`)
       await github.rest.repos.deleteReleaseAsset({
         owner,
         repo,
         asset_id: asset.id
       })
     }
-    core.info(`deleted assets`)
+    if (release.assets.length > 0) {
+      core.info(`deleted ${release.assets.length} assets`)
+    }
 
     // update or create ref
     let ref
@@ -60,7 +61,9 @@ async function run(): Promise<void> {
         sha: GITHUB_SHA!
       })
     } else {
-      core.info(`update ref ${tagName} to ${GITHUB_SHA}`)
+      core.info(
+        `update ref ${tagName} from ${ref.data.object.sha} to ${GITHUB_SHA}`
+      )
       await github.rest.git.updateRef({
         owner,
         repo,
@@ -77,25 +80,17 @@ async function run(): Promise<void> {
       name: 'Nightly Release @ 2021-12-02',
       body: 'TODO: auto generated'
     })
-    core.info(`${ret}`)
+    core.info(`${JSON.stringify(ret)}`)
     // await github.rest.repos.deleteReleaseAsset({
     //  owner: 'andelf',
     //  repo: 'nightly-release',
     //
     //})
 
-    const ms: string = core.getInput('milliseconds')
-    core.debug(`Waiting ${ms} milliseconds ...`) // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true
-
-    core.info(`Waiting ${ms} milliseconds ...`)
-
-    core.debug(new Date().toTimeString())
-    await wait(parseInt(ms, 10))
-    core.debug(new Date().toTimeString())
 
     core.setOutput('time', new Date().toTimeString())
   } catch (error) {
-    //console.log(error)
+    core.error(`error: ${JSON.stringify(error)}`)
     if (error instanceof Error) core.setFailed(error.message)
   }
 }
