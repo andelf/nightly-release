@@ -25,15 +25,6 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 const core = __importStar(__nccwpck_require__(2186));
@@ -41,92 +32,98 @@ const core = __importStar(__nccwpck_require__(2186));
 // import * as glob from '@actions/glob'
 const utils_1 = __nccwpck_require__(3030);
 const github_1 = __nccwpck_require__(5438);
-function run() {
-    return __awaiter(this, void 0, void 0, function* () {
+async function run() {
+    try {
+        const { GITHUB_SHA } = process.env;
+        const github = new utils_1.GitHub({ auth: process.env.GITHUB_TOKEN });
+        const tagName = core.getInput('tag_name');
+        const isDraft = core.getInput('draft') === 'true';
+        const isPrerelease = core.getInput('prerelease') === 'true';
+        let name = core.getInput('name');
+        if (name.includes('$$')) {
+            core.notice(`tag name is ${tagName}`);
+            const nightlyName = new Date()
+                .toISOString()
+                .split('T')[0]
+                .replaceAll('-', '');
+            name = name.replace('$$', nightlyName);
+        }
+        //const { owner, repo } = context.repo;
+        core.info(`got context ${JSON.stringify(github_1.context.repo)}`);
+        const { owner, repo } = github_1.context.repo;
+        // get release
+        const rel = await github.rest.repos.getReleaseByTag({
+            owner,
+            repo,
+            tag: 'nightly'
+        });
+        core.info(`got release ${rel.data.name} by ${rel.data.author}`);
+        // delete release assets
+        const { data: release } = rel;
+        for (const asset of release.assets) {
+            core.info(`deleting ${asset.name}`);
+            await github.rest.repos.deleteReleaseAsset({
+                owner,
+                repo,
+                asset_id: asset.id
+            });
+        }
+        if (release.assets.length > 0) {
+            core.info(`deleted ${release.assets.length} assets`);
+        }
+        // update or create ref
+        let ref;
         try {
-            const { GITHUB_SHA } = process.env;
-            const github = new utils_1.GitHub({ auth: process.env.GITHUB_TOKEN });
-            const tagName = core.getInput('tag_name');
-            const isDraft = core.getInput('draft') === 'true';
-            const isPrerelease = core.getInput('prerelease') === 'true';
-            core.notice(`this tag name is ${tagName}`);
-            //const { owner, repo } = context.repo;
-            core.info(`got context ${JSON.stringify(github_1.context.repo)}`);
-            const { owner, repo } = github_1.context.repo;
-            // get release
-            const rel = yield github.rest.repos.getReleaseByTag({
+            ref = await github.rest.git.getRef({
                 owner,
                 repo,
-                tag: 'nightly'
+                ref: `tags/${tagName}`
             });
-            core.info(`got release ${rel.data.name} by ${rel.data.author}`);
-            // delete release assets
-            const { data: release } = rel;
-            for (const asset of release.assets) {
-                core.info(`deleting ${asset.name}`);
-                yield github.rest.repos.deleteReleaseAsset({
-                    owner,
-                    repo,
-                    asset_id: asset.id
-                });
-            }
-            if (release.assets.length > 0) {
-                core.info(`deleted ${release.assets.length} assets`);
-            }
-            // update or create ref
-            let ref;
-            try {
-                ref = yield github.rest.git.getRef({
-                    owner,
-                    repo,
-                    ref: `tags/${tagName}`
-                });
-            }
-            catch (e) {
-                // Reference does not exist
-            }
-            if (!ref) {
-                core.info(`set ref ${tagName} to ${GITHUB_SHA}`);
-                yield github.rest.git.createRef({
-                    owner,
-                    repo,
-                    ref: `tags/${tagName}`,
-                    sha: GITHUB_SHA
-                });
-            }
-            else {
-                core.info(`update ref ${tagName} from ${ref.data.object.sha} to ${GITHUB_SHA}`);
-                yield github.rest.git.updateRef({
-                    owner,
-                    repo,
-                    ref: `tags/${tagName}`,
-                    sha: GITHUB_SHA
-                });
-            }
-            core.info(`update release info`);
-            const ret = yield github.rest.repos.updateRelease({
+        }
+        catch (e) {
+            // Reference does not exist
+        }
+        if (!ref) {
+            core.info(`set ref tags/${tagName} to ${GITHUB_SHA}`);
+            await github.rest.git.createRef({
                 owner,
                 repo,
-                release_id: release.id,
-                name: 'Nightly Release @ 2021-12-02',
-                body: 'TODO: auto generated',
-                draft: isDraft,
-                prerelease: isPrerelease
+                ref: `tags/${tagName}`,
+                sha: GITHUB_SHA
             });
-            core.info(`${JSON.stringify(ret)}`);
-            // await github.rest.repos.deleteReleaseAsset({
-            //  owner: 'andelf',
-            //  repo: 'nightly-release',
-            //
-            //})
-            core.setOutput('time', new Date().toTimeString());
         }
-        catch (error) {
-            core.error(`error: ${JSON.stringify(error)}`);
-            if (error instanceof Error)
-                core.setFailed(error.message);
+        else {
+            core.info(`update ref tags/${tagName} from ${ref.data.object.sha} to ${GITHUB_SHA}`);
+            await github.rest.git.updateRef({
+                owner,
+                repo,
+                ref: `tags/${tagName}`,
+                sha: GITHUB_SHA
+            });
         }
-    });
+        core.info(`update release info`);
+        const ret = await github.rest.repos.updateRelease({
+            owner,
+            repo,
+            release_id: release.id,
+            name: 'Nightly Release @ 2021-12-02',
+            body: 'TODO: auto generated',
+            draft: isDraft,
+            prerelease: isPrerelease
+        });
+        core.info(`${JSON.stringify(ret)}`);
+        // await github.rest.repos.deleteReleaseAsset({
+        //  owner: 'andelf',
+        //  repo: 'nightly-release',
+        //
+        //})
+        core.setOutput('time', new Date().toTimeString());
+    }
+    catch (error) {
+        core.error(`error: ${JSON.stringify(error)}`);
+        if (error instanceof Error)
+            core.setFailed(error.message);
+    }
 }
 run();
 

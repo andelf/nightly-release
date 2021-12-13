@@ -13,7 +13,17 @@ async function run(): Promise<void> {
     const tagName: string = core.getInput('tag_name')
     const isDraft: boolean = core.getInput('draft') === 'true'
     const isPrerelease: boolean = core.getInput('prerelease') === 'true'
-    core.notice(`this tag name is ${tagName}`)
+    let name = core.getInput('name')
+
+    if (name.includes('$$')) {
+      core.notice(`tag name is ${tagName}`)
+      const nightlyName = new Date()
+        .toISOString()
+        .split('T')[0]
+        .replaceAll('-', '')
+
+      name = name.replace('$$', nightlyName)
+    }
 
     //const { owner, repo } = context.repo;
     core.info(`got context ${JSON.stringify(context.repo)}`)
@@ -53,7 +63,7 @@ async function run(): Promise<void> {
       // Reference does not exist
     }
     if (!ref) {
-      core.info(`set ref ${tagName} to ${GITHUB_SHA}`)
+      core.info(`set ref tags/${tagName} to ${GITHUB_SHA}`)
       await github.rest.git.createRef({
         owner,
         repo,
@@ -62,7 +72,7 @@ async function run(): Promise<void> {
       })
     } else {
       core.info(
-        `update ref ${tagName} from ${ref.data.object.sha} to ${GITHUB_SHA}`
+        `update ref tags/${tagName} from ${ref.data.object.sha} to ${GITHUB_SHA}`
       )
       await github.rest.git.updateRef({
         owner,

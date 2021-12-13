@@ -23,7 +23,9 @@ jobs:
         with:
           # milliseconds: 1000
           tag_name: nightly
+          name: 'Desktop App Nightly Relase $$'
           draft: false
           prerelease: true
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
