@@ -158,7 +158,7 @@ async function run(): Promise<void> {
     core.setOutput('id', ret.data.id.toString())
     core.setOutput('upload_url', ret.data.upload_url)
   } catch (error) {
-    core.error(`error: ${JSON.stringify(error)}`)
+    core.error(`error: ${error}`)
     if (error instanceof Error) core.setFailed(error.message)
   }
 }
