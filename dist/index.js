@@ -41,7 +41,8 @@ const fs_1 = __nccwpck_require__(7147);
 async function run() {
     try {
         const { GITHUB_SHA } = process.env;
-        const github = new utils_1.GitHub({ auth: process.env.GITHUB_TOKEN });
+        const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.INPUT_TOKEN;
+        const github = new utils_1.GitHub({ auth: GITHUB_TOKEN });
         core.info(`got context ${JSON.stringify(github_1.context.repo)}`);
         const { owner, repo } = github_1.context.repo;
         const tagName = core.getInput('tag_name');
@@ -86,6 +87,7 @@ async function run() {
                 target_commitish: GITHUB_SHA,
                 draft: true
             });
+            core.debug(`fetch release ${JSON.stringify(ret.data)}`);
             rel = await github.rest.repos.getRelease({
                 owner,
                 repo,
@@ -187,7 +189,7 @@ const upload = async (github, owner, repo, url, path) => {
         headers: {
             'content-length': `${size}`,
             'content-type': mime,
-            authorization: `token ${process.env.GITHUB_TOKEN}`
+            authorization: `token ${process.env.GITHUB_TOKEN || process.env.INPUT_TOKEN}`
         },
         method: 'POST',
         body

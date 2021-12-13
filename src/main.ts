@@ -12,7 +12,8 @@ import { readFileSync } from 'fs'
 async function run(): Promise<void> {
   try {
     const { GITHUB_SHA } = process.env
-    const github = new GitHub({ auth: process.env.GITHUB_TOKEN })
+    const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.INPUT_TOKEN
+    const github = new GitHub({ auth: GITHUB_TOKEN })
     core.info(`got context ${JSON.stringify(context.repo)}`)
     const { owner, repo } = context.repo
 
@@ -63,6 +64,7 @@ async function run(): Promise<void> {
         target_commitish: GITHUB_SHA,
         draft: true
       })
+      core.debug(`fetch release ${JSON.stringify(ret.data)}`)
       rel = await github.rest.repos.getRelease({
         owner,
         repo,
@@ -83,9 +85,7 @@ async function run(): Promise<void> {
         })
       } catch (e) {
         const error = e as any
-        core.warning(
-          `failed to delete ${asset.name} ${error.name} ${error.status}`
-        )
+        core.warning(`failed to delete ${asset.name} ${error.name} ${error.status}`)
       }
     }
     if (release.assets.length > 0) {
@@ -112,9 +112,7 @@ async function run(): Promise<void> {
         sha: GITHUB_SHA!
       })
     } else if (ref.data.object.sha !== GITHUB_SHA) {
-      core.info(
-        `update ref tags/${tagName} from ${ref.data.object.sha} to ${GITHUB_SHA}`
-      )
+      core.info(`update ref tags/${tagName} from ${ref.data.object.sha} to ${GITHUB_SHA}`)
       await github.rest.git.updateRef({
         owner,
         repo,
@@ -139,13 +137,7 @@ async function run(): Promise<void> {
     } else {
       const assets = await Promise.all(
         files.map(async path => {
-          const json = await upload(
-            github,
-            owner,
-            repo,
-            uploadUrl(ret.data.upload_url),
-            path
-          )
+          const json = await upload(github, owner, repo, uploadUrl(ret.data.upload_url), path)
           delete json.uploader
           return json
         })
@@ -181,7 +173,7 @@ const upload = async (
     headers: {
       'content-length': `${size}`,
       'content-type': mime,
-      authorization: `token ${process.env.GITHUB_TOKEN}`
+      authorization: `token ${process.env.GITHUB_TOKEN || process.env.INPUT_TOKEN}`
     },
     method: 'POST',
     body
@@ -189,9 +181,9 @@ const upload = async (
   const json = (await resp.json()) as any
   if (resp.status !== 201) {
     throw new Error(
-      `Failed to upload release asset ${name}. received status code ${
-        resp.status
-      }\n${json.message}\n${JSON.stringify(json.errors)}`
+      `Failed to upload release asset ${name}. received status code ${resp.status}\n${
+        json.message
+      }\n${JSON.stringify(json.errors)}`
     )
   }
   return json
