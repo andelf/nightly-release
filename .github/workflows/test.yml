@@ -30,8 +30,8 @@ jobs:
       - run: ls -lah
       - uses: ./
         with:
-          tag_name: nightly
-          name: 'Desktop App Nightly Relase $$'
+          tag_name: nightly2
+          name: 'Desktop App Nightly2 Relase $$'
           draft: false
           prerelease: true
           body_path: RELEASE-NOTES.txt
