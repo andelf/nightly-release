@@ -133,7 +133,9 @@ async function run() {
             core.setOutput('assets', assets);
         }
         core.info(`🎉 Release ready at ${ret.data.html_url}`);
-        core.setOutput('time', new Date().toTimeString());
+        core.setOutput('url', ret.data.html_url);
+        core.setOutput('id', ret.data.id.toString());
+        core.setOutput('upload_url', ret.data.upload_url);
     }
     catch (error) {
         core.error(`error: ${JSON.stringify(error)}`);

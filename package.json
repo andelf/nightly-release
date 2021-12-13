@@ -1,5 +1,5 @@
 {
-  "name": "typescript-action",
+  "name": "nightly-release",
   "version": "0.0.0",
   "private": true,
   "description": "TypeScript template action",
