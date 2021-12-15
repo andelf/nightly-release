@@ -6,8 +6,9 @@
 
 This action is use to create/update a nightly release.
 
-Change tag to newest.
-Remove old assets, and upload new ones.
+- Update Release name with simple template with date
+- Create/change `nightly` tag to head ref
+- Remove old assets, and upload new ones
 
 ## Usage
 
