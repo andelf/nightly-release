@@ -19,14 +19,18 @@ Remove old assets, and upload new ones.
         with:
           tag_name: nightly
           name: 'Desktop App Nightly Relase $$'
-          draft: false
           prerelease: true
           body: 'TODO: Add nightly release notes'
           files: |
-            ./VERSION
             ./SHA256SUMS.txt
             ./*.zip
             ./*.dmg
             ./*.exe
             ./*.AppImage
 ```
+
+## Demo
+
+[logseq/logseq](https://github.com/logseq/logseq) is using this action to create nightly releases.
+
+[Nightly Release Page](https://github.com/logseq/logseq/releases/tag/nightly)
