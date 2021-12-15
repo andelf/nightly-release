@@ -1,8 +1,8 @@
 {
   "name": "nightly-release",
-  "version": "0.0.3",
+  "version": "1.0.0",
   "private": true,
-  "description": "TypeScript template action",
+  "description": "Nightly release action for Github",
   "main": "lib/main.js",
   "scripts": {
     "build": "tsc",
