@@ -1,5 +1,5 @@
-name: 'Update Nightly Release'
-description: 'Update the nightly release, remove old artifacts and upload new artifacts'
+name: 'Nightly Release'
+description: 'Create or update the nightly release, remove old artifacts and upload new artifacts'
 author: 'andelf'
 inputs:
   tag_name:
