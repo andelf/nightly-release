@@ -19,7 +19,7 @@ This action is use to create/update a nightly release.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: nightly
-          name: 'Desktop App Nightly Relase $$'
+          name: 'Desktop App Nightly Release $$'
           prerelease: true
           body: 'TODO: Add nightly release notes'
           files: |
