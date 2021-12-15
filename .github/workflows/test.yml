@@ -31,7 +31,7 @@ jobs:
       - uses: ./
         with:
           tag_name: nightly
-          name: 'Desktop App nightly Release $$'
+          name: 'Nightly Release of Nightly Release $$'
           draft: false
           prerelease: true
           body_path: RELEASE-NOTES.txt
