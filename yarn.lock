@@ -801,15 +801,23 @@
     eslint-scope "^5.1.1"
     eslint-utils "^3.0.0"
 
-"@typescript-eslint/parser@^5.0.0", "@typescript-eslint/parser@^5.1.0":
-  version "5.5.0"
-  resolved "https://registry.npmjs.org/@typescript-eslint/parser/-/parser-5.5.0.tgz"
-  integrity sha512-JsXBU+kgQOAgzUn2jPrLA+Rd0Y1dswOlX3hp8MuRO1hQDs6xgHtbCXEiAu7bz5hyVURxbXcA2draasMbNqrhmg==
+"@typescript-eslint/parser@^5.1.0", "@typescript-eslint/parser@^5.17.0":
+  version "5.17.0"
+  resolved "https://registry.yarnpkg.com/@typescript-eslint/parser/-/parser-5.17.0.tgz#7def77d5bcd8458d12d52909118cf3f0a45f89d5"
+  integrity sha512-aRzW9Jg5Rlj2t2/crzhA2f23SIYFlF9mchGudyP0uiD6SenIxzKoLjwzHbafgHn39dNV/TV7xwQkLfFTZlJ4ig==
   dependencies:
-    "@typescript-eslint/scope-manager" "5.5.0"
-    "@typescript-eslint/types" "5.5.0"
-    "@typescript-eslint/typescript-estree" "5.5.0"
+    "@typescript-eslint/scope-manager" "5.17.0"
+    "@typescript-eslint/types" "5.17.0"
+    "@typescript-eslint/typescript-estree" "5.17.0"
     debug "^4.3.2"
+
+"@typescript-eslint/scope-manager@5.17.0":
+  version "5.17.0"
+  resolved "https://registry.yarnpkg.com/@typescript-eslint/scope-manager/-/scope-manager-5.17.0.tgz#4cea7d0e0bc0e79eb60cad431c89120987c3f952"
+  integrity sha512-062iCYQF/doQ9T2WWfJohQKKN1zmmXVfAcS3xaiialiw8ZUGy05Em6QVNYJGO34/sU1a7a+90U3dUNfqUDHr3w==
+  dependencies:
+    "@typescript-eslint/types" "5.17.0"
+    "@typescript-eslint/visitor-keys" "5.17.0"
 
 "@typescript-eslint/scope-manager@5.5.0":
   version "5.5.0"
@@ -819,10 +827,28 @@
     "@typescript-eslint/types" "5.5.0"
     "@typescript-eslint/visitor-keys" "5.5.0"
 
+"@typescript-eslint/types@5.17.0":
+  version "5.17.0"
+  resolved "https://registry.yarnpkg.com/@typescript-eslint/types/-/types-5.17.0.tgz#861ec9e669ffa2aa9b873dd4d28d9b1ce26d216f"
+  integrity sha512-AgQ4rWzmCxOZLioFEjlzOI3Ch8giDWx8aUDxyNw9iOeCvD3GEYAB7dxWGQy4T/rPVe8iPmu73jPHuaSqcjKvxw==
+
 "@typescript-eslint/types@5.5.0":
   version "5.5.0"
   resolved "https://registry.npmjs.org/@typescript-eslint/types/-/types-5.5.0.tgz"
   integrity sha512-OaYTqkW3GnuHxqsxxJ6KypIKd5Uw7bFiQJZRyNi1jbMJnK3Hc/DR4KwB6KJj6PBRkJJoaNwzMNv9vtTk87JhOg==
+
+"@typescript-eslint/typescript-estree@5.17.0":
+  version "5.17.0"
+  resolved "https://registry.yarnpkg.com/@typescript-eslint/typescript-estree/-/typescript-estree-5.17.0.tgz#a7cba7dfc8f9cc2ac78c18584e684507df4f2488"
+  integrity sha512-X1gtjEcmM7Je+qJRhq7ZAAaNXYhTgqMkR10euC4Si6PIjb+kwEQHSxGazXUQXFyqfEXdkGf6JijUu5R0uceQzg==
+  dependencies:
+    "@typescript-eslint/types" "5.17.0"
+    "@typescript-eslint/visitor-keys" "5.17.0"
+    debug "^4.3.2"
+    globby "^11.0.4"
+    is-glob "^4.0.3"
+    semver "^7.3.5"
+    tsutils "^3.21.0"
 
 "@typescript-eslint/typescript-estree@5.5.0":
   version "5.5.0"
@@ -837,6 +863,14 @@
     semver "^7.3.5"
     tsutils "^3.21.0"
 
+"@typescript-eslint/visitor-keys@5.17.0":
+  version "5.17.0"
+  resolved "https://registry.yarnpkg.com/@typescript-eslint/visitor-keys/-/visitor-keys-5.17.0.tgz#52daae45c61b0211b4c81b53a71841911e479128"
+  integrity sha512-6K/zlc4OfCagUu7Am/BD5k8PSWQOgh34Nrv9Rxe2tBzlJ7uOeJ/h7ugCGDCeEZHT6k2CJBhbk9IsbkPI0uvUkA==
+  dependencies:
+    "@typescript-eslint/types" "5.17.0"
+    eslint-visitor-keys "^3.0.0"
+
 "@typescript-eslint/visitor-keys@5.5.0":
   version "5.5.0"
   resolved "https://registry.npmjs.org/@typescript-eslint/visitor-keys/-/visitor-keys-5.5.0.tgz"
@@ -845,10 +879,10 @@
     "@typescript-eslint/types" "5.5.0"
     eslint-visitor-keys "^3.0.0"
 
-"@vercel/ncc@^0.32.0":
-  version "0.32.0"
-  resolved "https://registry.npmjs.org/@vercel/ncc/-/ncc-0.32.0.tgz"
-  integrity sha512-S/SxTHHTbBQSOutpgnqEn+LyTfZcq9xMRAnzY05HpGVjxjmfmvg6SWZZkbW/GJIFznMmHGeGOrI1MEBD7efIkA==
+"@vercel/ncc@^0.33.0":
+  version "0.33.3"
+  resolved "https://registry.yarnpkg.com/@vercel/ncc/-/ncc-0.33.3.tgz#aacc6b3ea9f7b175e0c9a18c9b97e4005a2f4fcc"
+  integrity sha512-JGZ11QV+/ZcfudW2Cz2JVp54/pJNXbsuWRgSh2ZmmZdQBKXqBtIGrwI1Wyx8nlbzAiEFe7FHi4K1zX4//jxTnQ==
 
 abab@^2.0.3, abab@^2.0.5:
   version "2.0.5"
@@ -3179,7 +3213,12 @@ prettier-linter-helpers@^1.0.0:
   dependencies:
     fast-diff "^1.1.2"
 
-prettier@2.5.0, prettier@^2.2.1:
+prettier@2.5.1:
+  version "2.5.1"
+  resolved "https://registry.yarnpkg.com/prettier/-/prettier-2.5.1.tgz#fff75fa9d519c54cf0fce328c1017d94546bc56a"
+  integrity sha512-vBZcPRUR5MZJwoyi3ZoyQlc1rXeEck8KgeC9AwwOn+exuxLxq5toTRDTSaVrXHxelDMHy9zlicw8u66yxoSUFg==
+
+prettier@^2.2.1:
   version "2.5.0"
   resolved "https://registry.npmjs.org/prettier/-/prettier-2.5.0.tgz"
   integrity sha512-FM/zAKgWTxj40rH03VxzIPdXmj39SwSjwG0heUcNFwI+EMZJnY93yAiKXM3dObIKAM5TA88werc8T/EwhB45eg==
