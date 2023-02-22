@@ -36,7 +36,7 @@ const glob = __importStar(__nccwpck_require__(8090));
 const util_1 = __nccwpck_require__(4024);
 const utils_1 = __nccwpck_require__(3030);
 const github_1 = __nccwpck_require__(5438);
-const node_fetch_1 = __importDefault(__nccwpck_require__(7580));
+const node_fetch_1 = __importDefault(__nccwpck_require__(4429));
 const fs_1 = __nccwpck_require__(7147);
 async function run() {
     try {
@@ -428,13 +428,9 @@ function exportVariable(name, val) {
     process.env[name] = convertedVal;
     const filePath = process.env['GITHUB_ENV'] || '';
     if (filePath) {
-        const delimiter = '_GitHubActionsFileCommandDelimeter_';
-        const commandValue = `${name}<<${delimiter}${os.EOL}${convertedVal}${os.EOL}${delimiter}`;
-        file_command_1.issueCommand('ENV', commandValue);
+        return file_command_1.issueFileCommand('ENV', file_command_1.prepareKeyValueMessage(name, val));
     }
-    else {
-        command_1.issueCommand('set-env', { name }, convertedVal);
-    }
+    command_1.issueCommand('set-env', { name }, convertedVal);
 }
 exports.exportVariable = exportVariable;
 /**
@@ -452,7 +448,7 @@ exports.setSecret = setSecret;
 function addPath(inputPath) {
     const filePath = process.env['GITHUB_PATH'] || '';
     if (filePath) {
-        file_command_1.issueCommand('PATH', inputPath);
+        file_command_1.issueFileCommand('PATH', inputPath);
     }
     else {
         command_1.issueCommand('add-path', {}, inputPath);
@@ -492,7 +488,10 @@ function getMultilineInput(name, options) {
     const inputs = getInput(name, options)
         .split('\n')
         .filter(x => x !== '');
-    return inputs;
+    if (options && options.trimWhitespace === false) {
+        return inputs;
+    }
+    return inputs.map(input => input.trim());
 }
 exports.getMultilineInput = getMultilineInput;
 /**
@@ -525,8 +524,12 @@ exports.getBooleanInput = getBooleanInput;
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function setOutput(name, value) {
+    const filePath = process.env['GITHUB_OUTPUT'] || '';
+    if (filePath) {
+        return file_command_1.issueFileCommand('OUTPUT', file_command_1.prepareKeyValueMessage(name, value));
+    }
     process.stdout.write(os.EOL);
-    command_1.issueCommand('set-output', { name }, value);
+    command_1.issueCommand('set-output', { name }, utils_1.toCommandValue(value));
 }
 exports.setOutput = setOutput;
 /**
@@ -655,7 +658,11 @@ exports.group = group;
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function saveState(name, value) {
-    command_1.issueCommand('save-state', { name }, value);
+    const filePath = process.env['GITHUB_STATE'] || '';
+    if (filePath) {
+        return file_command_1.issueFileCommand('STATE', file_command_1.prepareKeyValueMessage(name, value));
+    }
+    command_1.issueCommand('save-state', { name }, utils_1.toCommandValue(value));
 }
 exports.saveState = saveState;
 /**
@@ -674,6 +681,23 @@ function getIDToken(aud) {
     });
 }
 exports.getIDToken = getIDToken;
+/**
+ * Summary exports
+ */
+var summary_1 = __nccwpck_require__(1327);
+Object.defineProperty(exports, "summary", ({ enumerable: true, get: function () { return summary_1.summary; } }));
+/**
+ * @deprecated use core.summary
+ */
+var summary_2 = __nccwpck_require__(1327);
+Object.defineProperty(exports, "markdownSummary", ({ enumerable: true, get: function () { return summary_2.markdownSummary; } }));
+/**
+ * Path exports
+ */
+var path_utils_1 = __nccwpck_require__(2981);
+Object.defineProperty(exports, "toPosixPath", ({ enumerable: true, get: function () { return path_utils_1.toPosixPath; } }));
+Object.defineProperty(exports, "toWin32Path", ({ enumerable: true, get: function () { return path_utils_1.toWin32Path; } }));
+Object.defineProperty(exports, "toPlatformPath", ({ enumerable: true, get: function () { return path_utils_1.toPlatformPath; } }));
 //# sourceMappingURL=core.js.map
 
 /***/ }),
@@ -704,13 +728,14 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.issueCommand = void 0;
+exports.prepareKeyValueMessage = exports.issueFileCommand = void 0;
 // We use any as a valid input type
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const fs = __importStar(__nccwpck_require__(7147));
 const os = __importStar(__nccwpck_require__(2037));
+const uuid_1 = __nccwpck_require__(5840);
 const utils_1 = __nccwpck_require__(5278);
-function issueCommand(command, message) {
+function issueFileCommand(command, message) {
     const filePath = process.env[`GITHUB_${command}`];
     if (!filePath) {
         throw new Error(`Unable to find environment variable for file command ${command}`);
@@ -722,7 +747,22 @@ function issueCommand(command, message) {
         encoding: 'utf8'
     });
 }
-exports.issueCommand = issueCommand;
+exports.issueFileCommand = issueFileCommand;
+function prepareKeyValueMessage(key, value) {
+    const delimiter = `ghadelimiter_${uuid_1.v4()}`;
+    const convertedValue = utils_1.toCommandValue(value);
+    // These should realistically never happen, but just in case someone finds a
+    // way to exploit uuid generation let's not allow keys or values that contain
+    // the delimiter.
+    if (key.includes(delimiter)) {
+        throw new Error(`Unexpected input: name should not contain the delimiter "${delimiter}"`);
+    }
+    if (convertedValue.includes(delimiter)) {
+        throw new Error(`Unexpected input: value should not contain the delimiter "${delimiter}"`);
+    }
+    return `${key}<<${delimiter}${os.EOL}${convertedValue}${os.EOL}${delimiter}`;
+}
+exports.prepareKeyValueMessage = prepareKeyValueMessage;
 //# sourceMappingURL=file-command.js.map
 
 /***/ }),
@@ -743,8 +783,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.OidcClient = void 0;
-const http_client_1 = __nccwpck_require__(9925);
-const auth_1 = __nccwpck_require__(3702);
+const http_client_1 = __nccwpck_require__(6255);
+const auth_1 = __nccwpck_require__(5526);
 const core_1 = __nccwpck_require__(2186);
 class OidcClient {
     static createHttpClient(allowRetry = true, maxRetry = 10) {
@@ -808,6 +848,361 @@ class OidcClient {
 }
 exports.OidcClient = OidcClient;
 //# sourceMappingURL=oidc-utils.js.map
+
+/***/ }),
+
+/***/ 2981:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.toPlatformPath = exports.toWin32Path = exports.toPosixPath = void 0;
+const path = __importStar(__nccwpck_require__(1017));
+/**
+ * toPosixPath converts the given path to the posix form. On Windows, \\ will be
+ * replaced with /.
+ *
+ * @param pth. Path to transform.
+ * @return string Posix path.
+ */
+function toPosixPath(pth) {
+    return pth.replace(/[\\]/g, '/');
+}
+exports.toPosixPath = toPosixPath;
+/**
+ * toWin32Path converts the given path to the win32 form. On Linux, / will be
+ * replaced with \\.
+ *
+ * @param pth. Path to transform.
+ * @return string Win32 path.
+ */
+function toWin32Path(pth) {
+    return pth.replace(/[/]/g, '\\');
+}
+exports.toWin32Path = toWin32Path;
+/**
+ * toPlatformPath converts the given path to a platform-specific path. It does
+ * this by replacing instances of / and \ with the platform-specific path
+ * separator.
+ *
+ * @param pth The path to platformize.
+ * @return string The platform-specific path.
+ */
+function toPlatformPath(pth) {
+    return pth.replace(/[/\\]/g, path.sep);
+}
+exports.toPlatformPath = toPlatformPath;
+//# sourceMappingURL=path-utils.js.map
+
+/***/ }),
+
+/***/ 1327:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.summary = exports.markdownSummary = exports.SUMMARY_DOCS_URL = exports.SUMMARY_ENV_VAR = void 0;
+const os_1 = __nccwpck_require__(2037);
+const fs_1 = __nccwpck_require__(7147);
+const { access, appendFile, writeFile } = fs_1.promises;
+exports.SUMMARY_ENV_VAR = 'GITHUB_STEP_SUMMARY';
+exports.SUMMARY_DOCS_URL = 'https://docs.github.com/actions/using-workflows/workflow-commands-for-github-actions#adding-a-job-summary';
+class Summary {
+    constructor() {
+        this._buffer = '';
+    }
+    /**
+     * Finds the summary file path from the environment, rejects if env var is not found or file does not exist
+     * Also checks r/w permissions.
+     *
+     * @returns step summary file path
+     */
+    filePath() {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this._filePath) {
+                return this._filePath;
+            }
+            const pathFromEnv = process.env[exports.SUMMARY_ENV_VAR];
+            if (!pathFromEnv) {
+                throw new Error(`Unable to find environment variable for $${exports.SUMMARY_ENV_VAR}. Check if your runtime environment supports job summaries.`);
+            }
+            try {
+                yield access(pathFromEnv, fs_1.constants.R_OK | fs_1.constants.W_OK);
+            }
+            catch (_a) {
+                throw new Error(`Unable to access summary file: '${pathFromEnv}'. Check if the file has correct read/write permissions.`);
+            }
+            this._filePath = pathFromEnv;
+            return this._filePath;
+        });
+    }
+    /**
+     * Wraps content in an HTML tag, adding any HTML attributes
+     *
+     * @param {string} tag HTML tag to wrap
+     * @param {string | null} content content within the tag
+     * @param {[attribute: string]: string} attrs key-value list of HTML attributes to add
+     *
+     * @returns {string} content wrapped in HTML element
+     */
+    wrap(tag, content, attrs = {}) {
+        const htmlAttrs = Object.entries(attrs)
+            .map(([key, value]) => ` ${key}="${value}"`)
+            .join('');
+        if (!content) {
+            return `<${tag}${htmlAttrs}>`;
+        }
+        return `<${tag}${htmlAttrs}>${content}</${tag}>`;
+    }
+    /**
+     * Writes text in the buffer to the summary buffer file and empties buffer. Will append by default.
+     *
+     * @param {SummaryWriteOptions} [options] (optional) options for write operation
+     *
+     * @returns {Promise<Summary>} summary instance
+     */
+    write(options) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const overwrite = !!(options === null || options === void 0 ? void 0 : options.overwrite);
+            const filePath = yield this.filePath();
+            const writeFunc = overwrite ? writeFile : appendFile;
+            yield writeFunc(filePath, this._buffer, { encoding: 'utf8' });
+            return this.emptyBuffer();
+        });
+    }
+    /**
+     * Clears the summary buffer and wipes the summary file
+     *
+     * @returns {Summary} summary instance
+     */
+    clear() {
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.emptyBuffer().write({ overwrite: true });
+        });
+    }
+    /**
+     * Returns the current summary buffer as a string
+     *
+     * @returns {string} string of summary buffer
+     */
+    stringify() {
+        return this._buffer;
+    }
+    /**
+     * If the summary buffer is empty
+     *
+     * @returns {boolen} true if the buffer is empty
+     */
+    isEmptyBuffer() {
+        return this._buffer.length === 0;
+    }
+    /**
+     * Resets the summary buffer without writing to summary file
+     *
+     * @returns {Summary} summary instance
+     */
+    emptyBuffer() {
+        this._buffer = '';
+        return this;
+    }
+    /**
+     * Adds raw text to the summary buffer
+     *
+     * @param {string} text content to add
+     * @param {boolean} [addEOL=false] (optional) append an EOL to the raw text (default: false)
+     *
+     * @returns {Summary} summary instance
+     */
+    addRaw(text, addEOL = false) {
+        this._buffer += text;
+        return addEOL ? this.addEOL() : this;
+    }
+    /**
+     * Adds the operating system-specific end-of-line marker to the buffer
+     *
+     * @returns {Summary} summary instance
+     */
+    addEOL() {
+        return this.addRaw(os_1.EOL);
+    }
+    /**
+     * Adds an HTML codeblock to the summary buffer
+     *
+     * @param {string} code content to render within fenced code block
+     * @param {string} lang (optional) language to syntax highlight code
+     *
+     * @returns {Summary} summary instance
+     */
+    addCodeBlock(code, lang) {
+        const attrs = Object.assign({}, (lang && { lang }));
+        const element = this.wrap('pre', this.wrap('code', code), attrs);
+        return this.addRaw(element).addEOL();
+    }
+    /**
+     * Adds an HTML list to the summary buffer
+     *
+     * @param {string[]} items list of items to render
+     * @param {boolean} [ordered=false] (optional) if the rendered list should be ordered or not (default: false)
+     *
+     * @returns {Summary} summary instance
+     */
+    addList(items, ordered = false) {
+        const tag = ordered ? 'ol' : 'ul';
+        const listItems = items.map(item => this.wrap('li', item)).join('');
+        const element = this.wrap(tag, listItems);
+        return this.addRaw(element).addEOL();
+    }
+    /**
+     * Adds an HTML table to the summary buffer
+     *
+     * @param {SummaryTableCell[]} rows table rows
+     *
+     * @returns {Summary} summary instance
+     */
+    addTable(rows) {
+        const tableBody = rows
+            .map(row => {
+            const cells = row
+                .map(cell => {
+                if (typeof cell === 'string') {
+                    return this.wrap('td', cell);
+                }
+                const { header, data, colspan, rowspan } = cell;
+                const tag = header ? 'th' : 'td';
+                const attrs = Object.assign(Object.assign({}, (colspan && { colspan })), (rowspan && { rowspan }));
+                return this.wrap(tag, data, attrs);
+            })
+                .join('');
+            return this.wrap('tr', cells);
+        })
+            .join('');
+        const element = this.wrap('table', tableBody);
+        return this.addRaw(element).addEOL();
+    }
+    /**
+     * Adds a collapsable HTML details element to the summary buffer
+     *
+     * @param {string} label text for the closed state
+     * @param {string} content collapsable content
+     *
+     * @returns {Summary} summary instance
+     */
+    addDetails(label, content) {
+        const element = this.wrap('details', this.wrap('summary', label) + content);
+        return this.addRaw(element).addEOL();
+    }
+    /**
+     * Adds an HTML image tag to the summary buffer
+     *
+     * @param {string} src path to the image you to embed
+     * @param {string} alt text description of the image
+     * @param {SummaryImageOptions} options (optional) addition image attributes
+     *
+     * @returns {Summary} summary instance
+     */
+    addImage(src, alt, options) {
+        const { width, height } = options || {};
+        const attrs = Object.assign(Object.assign({}, (width && { width })), (height && { height }));
+        const element = this.wrap('img', null, Object.assign({ src, alt }, attrs));
+        return this.addRaw(element).addEOL();
+    }
+    /**
+     * Adds an HTML section heading element
+     *
+     * @param {string} text heading text
+     * @param {number | string} [level=1] (optional) the heading level, default: 1
+     *
+     * @returns {Summary} summary instance
+     */
+    addHeading(text, level) {
+        const tag = `h${level}`;
+        const allowedTag = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tag)
+            ? tag
+            : 'h1';
+        const element = this.wrap(allowedTag, text);
+        return this.addRaw(element).addEOL();
+    }
+    /**
+     * Adds an HTML thematic break (<hr>) to the summary buffer
+     *
+     * @returns {Summary} summary instance
+     */
+    addSeparator() {
+        const element = this.wrap('hr', null);
+        return this.addRaw(element).addEOL();
+    }
+    /**
+     * Adds an HTML line break (<br>) to the summary buffer
+     *
+     * @returns {Summary} summary instance
+     */
+    addBreak() {
+        const element = this.wrap('br', null);
+        return this.addRaw(element).addEOL();
+    }
+    /**
+     * Adds an HTML blockquote to the summary buffer
+     *
+     * @param {string} text quote text
+     * @param {string} cite (optional) citation url
+     *
+     * @returns {Summary} summary instance
+     */
+    addQuote(text, cite) {
+        const attrs = Object.assign({}, (cite && { cite }));
+        const element = this.wrap('blockquote', text, attrs);
+        return this.addRaw(element).addEOL();
+    }
+    /**
+     * Adds an HTML anchor tag to the summary buffer
+     *
+     * @param {string} text link text/content
+     * @param {string} href hyperlink
+     *
+     * @returns {Summary} summary instance
+     */
+    addLink(text, href) {
+        const element = this.wrap('a', text, { href });
+        return this.addRaw(element).addEOL();
+    }
+}
+const _summary = new Summary();
+/**
+ * @deprecated use `core.summary`
+ */
+exports.markdownSummary = _summary;
+exports.summary = _summary;
+//# sourceMappingURL=summary.js.map
 
 /***/ }),
 
@@ -954,8 +1349,9 @@ exports.context = new Context.Context();
  * @param     token    the repo PAT or GITHUB_TOKEN
  * @param     options  other options to set
  */
-function getOctokit(token, options) {
-    return new utils_1.GitHub(utils_1.getOctokitOptions(token, options));
+function getOctokit(token, options, ...additionalPlugins) {
+    const GitHubWithPlugins = utils_1.GitHub.plugin(...additionalPlugins);
+    return new GitHubWithPlugins(utils_1.getOctokitOptions(token, options));
 }
 exports.getOctokit = getOctokit;
 //# sourceMappingURL=github.js.map
@@ -988,7 +1384,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getApiBaseUrl = exports.getProxyAgent = exports.getAuthString = void 0;
-const httpClient = __importStar(__nccwpck_require__(9925));
+const httpClient = __importStar(__nccwpck_require__(6255));
 function getAuthString(token, options) {
     if (!token && !options.auth) {
         throw new Error('Parameter token or opts.auth is required');
@@ -1037,7 +1433,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getOctokitOptions = exports.GitHub = exports.context = void 0;
+exports.getOctokitOptions = exports.GitHub = exports.defaults = exports.context = void 0;
 const Context = __importStar(__nccwpck_require__(4087));
 const Utils = __importStar(__nccwpck_require__(7914));
 // octokit + plugins
@@ -1046,13 +1442,13 @@ const plugin_rest_endpoint_methods_1 = __nccwpck_require__(3044);
 const plugin_paginate_rest_1 = __nccwpck_require__(4193);
 exports.context = new Context.Context();
 const baseUrl = Utils.getApiBaseUrl();
-const defaults = {
+exports.defaults = {
     baseUrl,
     request: {
         agent: Utils.getProxyAgent(baseUrl)
     }
 };
-exports.GitHub = core_1.Octokit.plugin(plugin_rest_endpoint_methods_1.restEndpointMethods, plugin_paginate_rest_1.paginateRest).defaults(defaults);
+exports.GitHub = core_1.Octokit.plugin(plugin_rest_endpoint_methods_1.restEndpointMethods, plugin_paginate_rest_1.paginateRest).defaults(exports.defaults);
 /**
  * Convience function to correctly format Octokit Options to pass into the constructor.
  *
@@ -1107,16 +1503,18 @@ exports.create = create;
  * Computes the sha256 hash of a glob
  *
  * @param patterns  Patterns separated by newlines
+ * @param currentWorkspace  Workspace used when matching files
  * @param options   Glob options
+ * @param verbose   Enables verbose logging
  */
-function hashFiles(patterns, options) {
+function hashFiles(patterns, currentWorkspace = '', options, verbose = false) {
     return __awaiter(this, void 0, void 0, function* () {
         let followSymbolicLinks = true;
         if (options && typeof options.followSymbolicLinks === 'boolean') {
             followSymbolicLinks = options.followSymbolicLinks;
         }
         const globber = yield create(patterns, { followSymbolicLinks });
-        return internal_hash_files_1.hashFiles(globber);
+        return internal_hash_files_1.hashFiles(globber, currentWorkspace, verbose);
     });
 }
 exports.hashFiles = hashFiles;
@@ -1476,24 +1874,27 @@ const fs = __importStar(__nccwpck_require__(7147));
 const stream = __importStar(__nccwpck_require__(2781));
 const util = __importStar(__nccwpck_require__(3837));
 const path = __importStar(__nccwpck_require__(1017));
-function hashFiles(globber) {
+function hashFiles(globber, currentWorkspace, verbose = false) {
     var e_1, _a;
     var _b;
     return __awaiter(this, void 0, void 0, function* () {
+        const writeDelegate = verbose ? core.info : core.debug;
         let hasMatch = false;
-        const githubWorkspace = (_b = process.env['GITHUB_WORKSPACE']) !== null && _b !== void 0 ? _b : process.cwd();
+        const githubWorkspace = currentWorkspace
+            ? currentWorkspace
+            : (_b = process.env['GITHUB_WORKSPACE']) !== null && _b !== void 0 ? _b : process.cwd();
         const result = crypto.createHash('sha256');
         let count = 0;
         try {
             for (var _c = __asyncValues(globber.globGenerator()), _d; _d = yield _c.next(), !_d.done;) {
                 const file = _d.value;
-                core.debug(file);
+                writeDelegate(file);
                 if (!file.startsWith(`${githubWorkspace}${path.sep}`)) {
-                    core.debug(`Ignore '${file}' since it is not under GITHUB_WORKSPACE.`);
+                    writeDelegate(`Ignore '${file}' since it is not under GITHUB_WORKSPACE.`);
                     continue;
                 }
                 if (fs.statSync(file).isDirectory()) {
-                    core.debug(`Skip directory '${file}'.`);
+                    writeDelegate(`Skip directory '${file}'.`);
                     continue;
                 }
                 const hash = crypto.createHash('sha256');
@@ -1515,11 +1916,11 @@ function hashFiles(globber) {
         }
         result.end();
         if (hasMatch) {
-            core.debug(`Found ${count} files to hash.`);
+            writeDelegate(`Found ${count} files to hash.`);
             return result.digest('hex');
         }
         else {
-            core.debug(`No matches found for glob`);
+            writeDelegate(`No matches found for glob`);
             return '';
         }
     });
@@ -2260,28 +2661,41 @@ exports.SearchState = SearchState;
 
 /***/ }),
 
-/***/ 3702:
-/***/ ((__unused_webpack_module, exports) => {
+/***/ 5526:
+/***/ (function(__unused_webpack_module, exports) {
 
 "use strict";
 
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.PersonalAccessTokenCredentialHandler = exports.BearerCredentialHandler = exports.BasicCredentialHandler = void 0;
 class BasicCredentialHandler {
     constructor(username, password) {
         this.username = username;
         this.password = password;
     }
     prepareRequest(options) {
-        options.headers['Authorization'] =
-            'Basic ' +
-                Buffer.from(this.username + ':' + this.password).toString('base64');
+        if (!options.headers) {
+            throw Error('The request has no headers');
+        }
+        options.headers['Authorization'] = `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`;
     }
     // This handler cannot handle 401
-    canHandleAuthentication(response) {
+    canHandleAuthentication() {
         return false;
     }
-    handleAuthentication(httpClient, requestInfo, objs) {
-        return null;
+    handleAuthentication() {
+        return __awaiter(this, void 0, void 0, function* () {
+            throw new Error('not implemented');
+        });
     }
 }
 exports.BasicCredentialHandler = BasicCredentialHandler;
@@ -2292,14 +2706,19 @@ class BearerCredentialHandler {
     // currently implements pre-authorization
     // TODO: support preAuth = false where it hooks on 401
     prepareRequest(options) {
-        options.headers['Authorization'] = 'Bearer ' + this.token;
+        if (!options.headers) {
+            throw Error('The request has no headers');
+        }
+        options.headers['Authorization'] = `Bearer ${this.token}`;
     }
     // This handler cannot handle 401
-    canHandleAuthentication(response) {
+    canHandleAuthentication() {
         return false;
     }
-    handleAuthentication(httpClient, requestInfo, objs) {
-        return null;
+    handleAuthentication() {
+        return __awaiter(this, void 0, void 0, function* () {
+            throw new Error('not implemented');
+        });
     }
 }
 exports.BearerCredentialHandler = BearerCredentialHandler;
@@ -2310,32 +2729,66 @@ class PersonalAccessTokenCredentialHandler {
     // currently implements pre-authorization
     // TODO: support preAuth = false where it hooks on 401
     prepareRequest(options) {
-        options.headers['Authorization'] =
-            'Basic ' + Buffer.from('PAT:' + this.token).toString('base64');
+        if (!options.headers) {
+            throw Error('The request has no headers');
+        }
+        options.headers['Authorization'] = `Basic ${Buffer.from(`PAT:${this.token}`).toString('base64')}`;
     }
     // This handler cannot handle 401
-    canHandleAuthentication(response) {
+    canHandleAuthentication() {
         return false;
     }
-    handleAuthentication(httpClient, requestInfo, objs) {
-        return null;
+    handleAuthentication() {
+        return __awaiter(this, void 0, void 0, function* () {
+            throw new Error('not implemented');
+        });
     }
 }
 exports.PersonalAccessTokenCredentialHandler = PersonalAccessTokenCredentialHandler;
-
+//# sourceMappingURL=auth.js.map
 
 /***/ }),
 
-/***/ 9925:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+/***/ 6255:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-const http = __nccwpck_require__(3685);
-const https = __nccwpck_require__(5687);
-const pm = __nccwpck_require__(6443);
-let tunnel;
+exports.HttpClient = exports.isHttps = exports.HttpClientResponse = exports.HttpClientError = exports.getProxyUrl = exports.MediaTypes = exports.Headers = exports.HttpCodes = void 0;
+const http = __importStar(__nccwpck_require__(3685));
+const https = __importStar(__nccwpck_require__(5687));
+const pm = __importStar(__nccwpck_require__(9835));
+const tunnel = __importStar(__nccwpck_require__(4294));
 var HttpCodes;
 (function (HttpCodes) {
     HttpCodes[HttpCodes["OK"] = 200] = "OK";
@@ -2380,7 +2833,7 @@ var MediaTypes;
  * @param serverUrl  The server URL where the request will be sent. For example, https://api.github.com
  */
 function getProxyUrl(serverUrl) {
-    let proxyUrl = pm.getProxyUrl(new URL(serverUrl));
+    const proxyUrl = pm.getProxyUrl(new URL(serverUrl));
     return proxyUrl ? proxyUrl.href : '';
 }
 exports.getProxyUrl = getProxyUrl;
@@ -2413,20 +2866,22 @@ class HttpClientResponse {
         this.message = message;
     }
     readBody() {
-        return new Promise(async (resolve, reject) => {
-            let output = Buffer.alloc(0);
-            this.message.on('data', (chunk) => {
-                output = Buffer.concat([output, chunk]);
-            });
-            this.message.on('end', () => {
-                resolve(output.toString());
-            });
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve) => __awaiter(this, void 0, void 0, function* () {
+                let output = Buffer.alloc(0);
+                this.message.on('data', (chunk) => {
+                    output = Buffer.concat([output, chunk]);
+                });
+                this.message.on('end', () => {
+                    resolve(output.toString());
+                });
+            }));
         });
     }
 }
 exports.HttpClientResponse = HttpClientResponse;
 function isHttps(requestUrl) {
-    let parsedUrl = new URL(requestUrl);
+    const parsedUrl = new URL(requestUrl);
     return parsedUrl.protocol === 'https:';
 }
 exports.isHttps = isHttps;
@@ -2469,141 +2924,169 @@ class HttpClient {
         }
     }
     options(requestUrl, additionalHeaders) {
-        return this.request('OPTIONS', requestUrl, null, additionalHeaders || {});
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.request('OPTIONS', requestUrl, null, additionalHeaders || {});
+        });
     }
     get(requestUrl, additionalHeaders) {
-        return this.request('GET', requestUrl, null, additionalHeaders || {});
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.request('GET', requestUrl, null, additionalHeaders || {});
+        });
     }
     del(requestUrl, additionalHeaders) {
-        return this.request('DELETE', requestUrl, null, additionalHeaders || {});
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.request('DELETE', requestUrl, null, additionalHeaders || {});
+        });
     }
     post(requestUrl, data, additionalHeaders) {
-        return this.request('POST', requestUrl, data, additionalHeaders || {});
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.request('POST', requestUrl, data, additionalHeaders || {});
+        });
     }
     patch(requestUrl, data, additionalHeaders) {
-        return this.request('PATCH', requestUrl, data, additionalHeaders || {});
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.request('PATCH', requestUrl, data, additionalHeaders || {});
+        });
     }
     put(requestUrl, data, additionalHeaders) {
-        return this.request('PUT', requestUrl, data, additionalHeaders || {});
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.request('PUT', requestUrl, data, additionalHeaders || {});
+        });
     }
     head(requestUrl, additionalHeaders) {
-        return this.request('HEAD', requestUrl, null, additionalHeaders || {});
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.request('HEAD', requestUrl, null, additionalHeaders || {});
+        });
     }
     sendStream(verb, requestUrl, stream, additionalHeaders) {
-        return this.request(verb, requestUrl, stream, additionalHeaders);
+        return __awaiter(this, void 0, void 0, function* () {
+            return this.request(verb, requestUrl, stream, additionalHeaders);
+        });
     }
     /**
      * Gets a typed object from an endpoint
      * Be aware that not found returns a null.  Other errors (4xx, 5xx) reject the promise
      */
-    async getJson(requestUrl, additionalHeaders = {}) {
-        additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
-        let res = await this.get(requestUrl, additionalHeaders);
-        return this._processResponse(res, this.requestOptions);
+    getJson(requestUrl, additionalHeaders = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
+            additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
+            const res = yield this.get(requestUrl, additionalHeaders);
+            return this._processResponse(res, this.requestOptions);
+        });
     }
-    async postJson(requestUrl, obj, additionalHeaders = {}) {
-        let data = JSON.stringify(obj, null, 2);
-        additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
-        additionalHeaders[Headers.ContentType] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.ContentType, MediaTypes.ApplicationJson);
-        let res = await this.post(requestUrl, data, additionalHeaders);
-        return this._processResponse(res, this.requestOptions);
+    postJson(requestUrl, obj, additionalHeaders = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const data = JSON.stringify(obj, null, 2);
+            additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
+            additionalHeaders[Headers.ContentType] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.ContentType, MediaTypes.ApplicationJson);
+            const res = yield this.post(requestUrl, data, additionalHeaders);
+            return this._processResponse(res, this.requestOptions);
+        });
     }
-    async putJson(requestUrl, obj, additionalHeaders = {}) {
-        let data = JSON.stringify(obj, null, 2);
-        additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
-        additionalHeaders[Headers.ContentType] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.ContentType, MediaTypes.ApplicationJson);
-        let res = await this.put(requestUrl, data, additionalHeaders);
-        return this._processResponse(res, this.requestOptions);
+    putJson(requestUrl, obj, additionalHeaders = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const data = JSON.stringify(obj, null, 2);
+            additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
+            additionalHeaders[Headers.ContentType] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.ContentType, MediaTypes.ApplicationJson);
+            const res = yield this.put(requestUrl, data, additionalHeaders);
+            return this._processResponse(res, this.requestOptions);
+        });
     }
-    async patchJson(requestUrl, obj, additionalHeaders = {}) {
-        let data = JSON.stringify(obj, null, 2);
-        additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
-        additionalHeaders[Headers.ContentType] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.ContentType, MediaTypes.ApplicationJson);
-        let res = await this.patch(requestUrl, data, additionalHeaders);
-        return this._processResponse(res, this.requestOptions);
+    patchJson(requestUrl, obj, additionalHeaders = {}) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const data = JSON.stringify(obj, null, 2);
+            additionalHeaders[Headers.Accept] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.Accept, MediaTypes.ApplicationJson);
+            additionalHeaders[Headers.ContentType] = this._getExistingOrDefaultHeader(additionalHeaders, Headers.ContentType, MediaTypes.ApplicationJson);
+            const res = yield this.patch(requestUrl, data, additionalHeaders);
+            return this._processResponse(res, this.requestOptions);
+        });
     }
     /**
      * Makes a raw http request.
      * All other methods such as get, post, patch, and request ultimately call this.
      * Prefer get, del, post and patch
      */
-    async request(verb, requestUrl, data, headers) {
-        if (this._disposed) {
-            throw new Error('Client has already been disposed.');
-        }
-        let parsedUrl = new URL(requestUrl);
-        let info = this._prepareRequest(verb, parsedUrl, headers);
-        // Only perform retries on reads since writes may not be idempotent.
-        let maxTries = this._allowRetries && RetryableHttpVerbs.indexOf(verb) != -1
-            ? this._maxRetries + 1
-            : 1;
-        let numTries = 0;
-        let response;
-        while (numTries < maxTries) {
-            response = await this.requestRaw(info, data);
-            // Check if it's an authentication challenge
-            if (response &&
-                response.message &&
-                response.message.statusCode === HttpCodes.Unauthorized) {
-                let authenticationHandler;
-                for (let i = 0; i < this.handlers.length; i++) {
-                    if (this.handlers[i].canHandleAuthentication(response)) {
-                        authenticationHandler = this.handlers[i];
-                        break;
-                    }
-                }
-                if (authenticationHandler) {
-                    return authenticationHandler.handleAuthentication(this, info, data);
-                }
-                else {
-                    // We have received an unauthorized response but have no handlers to handle it.
-                    // Let the response return to the caller.
-                    return response;
-                }
+    request(verb, requestUrl, data, headers) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this._disposed) {
+                throw new Error('Client has already been disposed.');
             }
-            let redirectsRemaining = this._maxRedirects;
-            while (HttpRedirectCodes.indexOf(response.message.statusCode) != -1 &&
-                this._allowRedirects &&
-                redirectsRemaining > 0) {
-                const redirectUrl = response.message.headers['location'];
-                if (!redirectUrl) {
-                    // if there's no location to redirect to, we won't
-                    break;
-                }
-                let parsedRedirectUrl = new URL(redirectUrl);
-                if (parsedUrl.protocol == 'https:' &&
-                    parsedUrl.protocol != parsedRedirectUrl.protocol &&
-                    !this._allowRedirectDowngrade) {
-                    throw new Error('Redirect from HTTPS to HTTP protocol. This downgrade is not allowed for security reasons. If you want to allow this behavior, set the allowRedirectDowngrade option to true.');
-                }
-                // we need to finish reading the response before reassigning response
-                // which will leak the open socket.
-                await response.readBody();
-                // strip authorization header if redirected to a different hostname
-                if (parsedRedirectUrl.hostname !== parsedUrl.hostname) {
-                    for (let header in headers) {
-                        // header names are case insensitive
-                        if (header.toLowerCase() === 'authorization') {
-                            delete headers[header];
+            const parsedUrl = new URL(requestUrl);
+            let info = this._prepareRequest(verb, parsedUrl, headers);
+            // Only perform retries on reads since writes may not be idempotent.
+            const maxTries = this._allowRetries && RetryableHttpVerbs.includes(verb)
+                ? this._maxRetries + 1
+                : 1;
+            let numTries = 0;
+            let response;
+            do {
+                response = yield this.requestRaw(info, data);
+                // Check if it's an authentication challenge
+                if (response &&
+                    response.message &&
+                    response.message.statusCode === HttpCodes.Unauthorized) {
+                    let authenticationHandler;
+                    for (const handler of this.handlers) {
+                        if (handler.canHandleAuthentication(response)) {
+                            authenticationHandler = handler;
+                            break;
                         }
                     }
+                    if (authenticationHandler) {
+                        return authenticationHandler.handleAuthentication(this, info, data);
+                    }
+                    else {
+                        // We have received an unauthorized response but have no handlers to handle it.
+                        // Let the response return to the caller.
+                        return response;
+                    }
                 }
-                // let's make the request with the new redirectUrl
-                info = this._prepareRequest(verb, parsedRedirectUrl, headers);
-                response = await this.requestRaw(info, data);
-                redirectsRemaining--;
-            }
-            if (HttpResponseRetryCodes.indexOf(response.message.statusCode) == -1) {
-                // If not a retry code, return immediately instead of retrying
-                return response;
-            }
-            numTries += 1;
-            if (numTries < maxTries) {
-                await response.readBody();
-                await this._performExponentialBackoff(numTries);
-            }
-        }
-        return response;
+                let redirectsRemaining = this._maxRedirects;
+                while (response.message.statusCode &&
+                    HttpRedirectCodes.includes(response.message.statusCode) &&
+                    this._allowRedirects &&
+                    redirectsRemaining > 0) {
+                    const redirectUrl = response.message.headers['location'];
+                    if (!redirectUrl) {
+                        // if there's no location to redirect to, we won't
+                        break;
+                    }
+                    const parsedRedirectUrl = new URL(redirectUrl);
+                    if (parsedUrl.protocol === 'https:' &&
+                        parsedUrl.protocol !== parsedRedirectUrl.protocol &&
+                        !this._allowRedirectDowngrade) {
+                        throw new Error('Redirect from HTTPS to HTTP protocol. This downgrade is not allowed for security reasons. If you want to allow this behavior, set the allowRedirectDowngrade option to true.');
+                    }
+                    // we need to finish reading the response before reassigning response
+                    // which will leak the open socket.
+                    yield response.readBody();
+                    // strip authorization header if redirected to a different hostname
+                    if (parsedRedirectUrl.hostname !== parsedUrl.hostname) {
+                        for (const header in headers) {
+                            // header names are case insensitive
+                            if (header.toLowerCase() === 'authorization') {
+                                delete headers[header];
+                            }
+                        }
+                    }
+                    // let's make the request with the new redirectUrl
+                    info = this._prepareRequest(verb, parsedRedirectUrl, headers);
+                    response = yield this.requestRaw(info, data);
+                    redirectsRemaining--;
+                }
+                if (!response.message.statusCode ||
+                    !HttpResponseRetryCodes.includes(response.message.statusCode)) {
+                    // If not a retry code, return immediately instead of retrying
+                    return response;
+                }
+                numTries += 1;
+                if (numTries < maxTries) {
+                    yield response.readBody();
+                    yield this._performExponentialBackoff(numTries);
+                }
+            } while (numTries < maxTries);
+            return response;
+        });
     }
     /**
      * Needs to be called if keepAlive is set to true in request options.
@@ -2620,14 +3103,22 @@ class HttpClient {
      * @param data
      */
     requestRaw(info, data) {
-        return new Promise((resolve, reject) => {
-            let callbackForResult = function (err, res) {
-                if (err) {
-                    reject(err);
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
+                function callbackForResult(err, res) {
+                    if (err) {
+                        reject(err);
+                    }
+                    else if (!res) {
+                        // If `err` is not passed, then `res` must be passed.
+                        reject(new Error('Unknown error'));
+                    }
+                    else {
+                        resolve(res);
+                    }
                 }
-                resolve(res);
-            };
-            this.requestRawWithCallback(info, data, callbackForResult);
+                this.requestRawWithCallback(info, data, callbackForResult);
+            });
         });
     }
     /**
@@ -2637,21 +3128,24 @@ class HttpClient {
      * @param onResult
      */
     requestRawWithCallback(info, data, onResult) {
-        let socket;
         if (typeof data === 'string') {
+            if (!info.options.headers) {
+                info.options.headers = {};
+            }
             info.options.headers['Content-Length'] = Buffer.byteLength(data, 'utf8');
         }
         let callbackCalled = false;
-        let handleResult = (err, res) => {
+        function handleResult(err, res) {
             if (!callbackCalled) {
                 callbackCalled = true;
                 onResult(err, res);
             }
-        };
-        let req = info.httpModule.request(info.options, (msg) => {
-            let res = new HttpClientResponse(msg);
-            handleResult(null, res);
+        }
+        const req = info.httpModule.request(info.options, (msg) => {
+            const res = new HttpClientResponse(msg);
+            handleResult(undefined, res);
         });
+        let socket;
         req.on('socket', sock => {
             socket = sock;
         });
@@ -2660,12 +3154,12 @@ class HttpClient {
             if (socket) {
                 socket.end();
             }
-            handleResult(new Error('Request timeout: ' + info.options.path), null);
+            handleResult(new Error(`Request timeout: ${info.options.path}`));
         });
         req.on('error', function (err) {
             // err has statusCode property
             // res should have headers
-            handleResult(err, null);
+            handleResult(err);
         });
         if (data && typeof data === 'string') {
             req.write(data, 'utf8');
@@ -2686,7 +3180,7 @@ class HttpClient {
      * @param serverUrl  The server URL where the request will be sent. For example, https://api.github.com
      */
     getAgent(serverUrl) {
-        let parsedUrl = new URL(serverUrl);
+        const parsedUrl = new URL(serverUrl);
         return this._getAgent(parsedUrl);
     }
     _prepareRequest(method, requestUrl, headers) {
@@ -2710,21 +3204,19 @@ class HttpClient {
         info.options.agent = this._getAgent(info.parsedUrl);
         // gives handlers an opportunity to participate
         if (this.handlers) {
-            this.handlers.forEach(handler => {
+            for (const handler of this.handlers) {
                 handler.prepareRequest(info.options);
-            });
+            }
         }
         return info;
     }
     _mergeHeaders(headers) {
-        const lowercaseKeys = obj => Object.keys(obj).reduce((c, k) => ((c[k.toLowerCase()] = obj[k]), c), {});
         if (this.requestOptions && this.requestOptions.headers) {
-            return Object.assign({}, lowercaseKeys(this.requestOptions.headers), lowercaseKeys(headers));
+            return Object.assign({}, lowercaseKeys(this.requestOptions.headers), lowercaseKeys(headers || {}));
         }
         return lowercaseKeys(headers || {});
     }
     _getExistingOrDefaultHeader(additionalHeaders, header, _default) {
-        const lowercaseKeys = obj => Object.keys(obj).reduce((c, k) => ((c[k.toLowerCase()] = obj[k]), c), {});
         let clientHeader;
         if (this.requestOptions && this.requestOptions.headers) {
             clientHeader = lowercaseKeys(this.requestOptions.headers)[header];
@@ -2733,8 +3225,8 @@ class HttpClient {
     }
     _getAgent(parsedUrl) {
         let agent;
-        let proxyUrl = pm.getProxyUrl(parsedUrl);
-        let useProxy = proxyUrl && proxyUrl.hostname;
+        const proxyUrl = pm.getProxyUrl(parsedUrl);
+        const useProxy = proxyUrl && proxyUrl.hostname;
         if (this._keepAlive && useProxy) {
             agent = this._proxyAgent;
         }
@@ -2742,29 +3234,22 @@ class HttpClient {
             agent = this._agent;
         }
         // if agent is already assigned use that agent.
-        if (!!agent) {
+        if (agent) {
             return agent;
         }
         const usingSsl = parsedUrl.protocol === 'https:';
         let maxSockets = 100;
-        if (!!this.requestOptions) {
+        if (this.requestOptions) {
             maxSockets = this.requestOptions.maxSockets || http.globalAgent.maxSockets;
         }
-        if (useProxy) {
-            // If using proxy, need tunnel
-            if (!tunnel) {
-                tunnel = __nccwpck_require__(4294);
-            }
+        // This is `useProxy` again, but we need to check `proxyURl` directly for TypeScripts's flow analysis.
+        if (proxyUrl && proxyUrl.hostname) {
             const agentOptions = {
-                maxSockets: maxSockets,
+                maxSockets,
                 keepAlive: this._keepAlive,
-                proxy: {
-                    ...((proxyUrl.username || proxyUrl.password) && {
-                        proxyAuth: `${proxyUrl.username}:${proxyUrl.password}`
-                    }),
-                    host: proxyUrl.hostname,
-                    port: proxyUrl.port
-                }
+                proxy: Object.assign(Object.assign({}, ((proxyUrl.username || proxyUrl.password) && {
+                    proxyAuth: `${proxyUrl.username}:${proxyUrl.password}`
+                })), { host: proxyUrl.hostname, port: proxyUrl.port })
             };
             let tunnelAgent;
             const overHttps = proxyUrl.protocol === 'https:';
@@ -2779,7 +3264,7 @@ class HttpClient {
         }
         // if reusing agent across request and tunneling agent isn't assigned create a new agent
         if (this._keepAlive && !agent) {
-            const options = { keepAlive: this._keepAlive, maxSockets: maxSockets };
+            const options = { keepAlive: this._keepAlive, maxSockets };
             agent = usingSsl ? new https.Agent(options) : new http.Agent(options);
             this._agent = agent;
         }
@@ -2798,109 +3283,117 @@ class HttpClient {
         return agent;
     }
     _performExponentialBackoff(retryNumber) {
-        retryNumber = Math.min(ExponentialBackoffCeiling, retryNumber);
-        const ms = ExponentialBackoffTimeSlice * Math.pow(2, retryNumber);
-        return new Promise(resolve => setTimeout(() => resolve(), ms));
+        return __awaiter(this, void 0, void 0, function* () {
+            retryNumber = Math.min(ExponentialBackoffCeiling, retryNumber);
+            const ms = ExponentialBackoffTimeSlice * Math.pow(2, retryNumber);
+            return new Promise(resolve => setTimeout(() => resolve(), ms));
+        });
     }
-    static dateTimeDeserializer(key, value) {
-        if (typeof value === 'string') {
-            let a = new Date(value);
-            if (!isNaN(a.valueOf())) {
-                return a;
-            }
-        }
-        return value;
-    }
-    async _processResponse(res, options) {
-        return new Promise(async (resolve, reject) => {
-            const statusCode = res.message.statusCode;
-            const response = {
-                statusCode: statusCode,
-                result: null,
-                headers: {}
-            };
-            // not found leads to null obj returned
-            if (statusCode == HttpCodes.NotFound) {
-                resolve(response);
-            }
-            let obj;
-            let contents;
-            // get the result from the body
-            try {
-                contents = await res.readBody();
-                if (contents && contents.length > 0) {
-                    if (options && options.deserializeDates) {
-                        obj = JSON.parse(contents, HttpClient.dateTimeDeserializer);
+    _processResponse(res, options) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+                const statusCode = res.message.statusCode || 0;
+                const response = {
+                    statusCode,
+                    result: null,
+                    headers: {}
+                };
+                // not found leads to null obj returned
+                if (statusCode === HttpCodes.NotFound) {
+                    resolve(response);
+                }
+                // get the result from the body
+                function dateTimeDeserializer(key, value) {
+                    if (typeof value === 'string') {
+                        const a = new Date(value);
+                        if (!isNaN(a.valueOf())) {
+                            return a;
+                        }
+                    }
+                    return value;
+                }
+                let obj;
+                let contents;
+                try {
+                    contents = yield res.readBody();
+                    if (contents && contents.length > 0) {
+                        if (options && options.deserializeDates) {
+                            obj = JSON.parse(contents, dateTimeDeserializer);
+                        }
+                        else {
+                            obj = JSON.parse(contents);
+                        }
+                        response.result = obj;
+                    }
+                    response.headers = res.message.headers;
+                }
+                catch (err) {
+                    // Invalid resource (contents not json);  leaving result obj null
+                }
+                // note that 3xx redirects are handled by the http layer.
+                if (statusCode > 299) {
+                    let msg;
+                    // if exception/error in body, attempt to get better error
+                    if (obj && obj.message) {
+                        msg = obj.message;
+                    }
+                    else if (contents && contents.length > 0) {
+                        // it may be the case that the exception is in the body message as string
+                        msg = contents;
                     }
                     else {
-                        obj = JSON.parse(contents);
+                        msg = `Failed request: (${statusCode})`;
                     }
-                    response.result = obj;
-                }
-                response.headers = res.message.headers;
-            }
-            catch (err) {
-                // Invalid resource (contents not json);  leaving result obj null
-            }
-            // note that 3xx redirects are handled by the http layer.
-            if (statusCode > 299) {
-                let msg;
-                // if exception/error in body, attempt to get better error
-                if (obj && obj.message) {
-                    msg = obj.message;
-                }
-                else if (contents && contents.length > 0) {
-                    // it may be the case that the exception is in the body message as string
-                    msg = contents;
+                    const err = new HttpClientError(msg, statusCode);
+                    err.result = response.result;
+                    reject(err);
                 }
                 else {
-                    msg = 'Failed request: (' + statusCode + ')';
+                    resolve(response);
                 }
-                let err = new HttpClientError(msg, statusCode);
-                err.result = response.result;
-                reject(err);
-            }
-            else {
-                resolve(response);
-            }
+            }));
         });
     }
 }
 exports.HttpClient = HttpClient;
-
+const lowercaseKeys = (obj) => Object.keys(obj).reduce((c, k) => ((c[k.toLowerCase()] = obj[k]), c), {});
+//# sourceMappingURL=index.js.map
 
 /***/ }),
 
-/***/ 6443:
+/***/ 9835:
 /***/ ((__unused_webpack_module, exports) => {
 
 "use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.checkBypass = exports.getProxyUrl = void 0;
 function getProxyUrl(reqUrl) {
-    let usingSsl = reqUrl.protocol === 'https:';
-    let proxyUrl;
+    const usingSsl = reqUrl.protocol === 'https:';
     if (checkBypass(reqUrl)) {
-        return proxyUrl;
+        return undefined;
     }
-    let proxyVar;
-    if (usingSsl) {
-        proxyVar = process.env['https_proxy'] || process.env['HTTPS_PROXY'];
+    const proxyVar = (() => {
+        if (usingSsl) {
+            return process.env['https_proxy'] || process.env['HTTPS_PROXY'];
+        }
+        else {
+            return process.env['http_proxy'] || process.env['HTTP_PROXY'];
+        }
+    })();
+    if (proxyVar) {
+        return new URL(proxyVar);
     }
     else {
-        proxyVar = process.env['http_proxy'] || process.env['HTTP_PROXY'];
+        return undefined;
     }
-    if (proxyVar) {
-        proxyUrl = new URL(proxyVar);
-    }
-    return proxyUrl;
 }
 exports.getProxyUrl = getProxyUrl;
 function checkBypass(reqUrl) {
     if (!reqUrl.hostname) {
         return false;
     }
-    let noProxy = process.env['no_proxy'] || process.env['NO_PROXY'] || '';
+    const noProxy = process.env['no_proxy'] || process.env['NO_PROXY'] || '';
     if (!noProxy) {
         return false;
     }
@@ -2916,12 +3409,12 @@ function checkBypass(reqUrl) {
         reqPort = 443;
     }
     // Format the request hostname and hostname with port
-    let upperReqHosts = [reqUrl.hostname.toUpperCase()];
+    const upperReqHosts = [reqUrl.hostname.toUpperCase()];
     if (typeof reqPort === 'number') {
         upperReqHosts.push(`${upperReqHosts[0]}:${reqPort}`);
     }
     // Compare request host against noproxy
-    for (let upperNoProxyItem of noProxy
+    for (const upperNoProxyItem of noProxy
         .split(',')
         .map(x => x.trim().toUpperCase())
         .filter(x => x)) {
@@ -2932,7 +3425,7 @@ function checkBypass(reqUrl) {
     return false;
 }
 exports.checkBypass = checkBypass;
-
+//# sourceMappingURL=proxy.js.map
 
 /***/ }),
 
@@ -3049,7 +3542,7 @@ function _objectWithoutProperties(source, excluded) {
   return target;
 }
 
-const VERSION = "3.5.1";
+const VERSION = "3.6.0";
 
 const _excluded = ["authStrategy"];
 class Octokit {
@@ -5063,7 +5556,7 @@ var isPlainObject = __nccwpck_require__(3287);
 var nodeFetch = _interopDefault(__nccwpck_require__(1768));
 var requestError = __nccwpck_require__(537);
 
-const VERSION = "5.6.2";
+const VERSION = "5.6.3";
 
 function getBufferResponse(response) {
   return response.arrayBuffer();
@@ -6643,9 +7136,31 @@ AbortError.prototype = Object.create(Error.prototype);
 AbortError.prototype.constructor = AbortError;
 AbortError.prototype.name = 'AbortError';
 
+const URL$1 = Url.URL || whatwgUrl.URL;
+
 // fix an issue where "PassThrough", "resolve" aren't a named export for node <10
 const PassThrough$1 = Stream.PassThrough;
-const resolve_url = Url.resolve;
+
+const isDomainOrSubdomain = function isDomainOrSubdomain(destination, original) {
+	const orig = new URL$1(original).hostname;
+	const dest = new URL$1(destination).hostname;
+
+	return orig === dest || orig[orig.length - dest.length - 1] === '.' && orig.endsWith(dest);
+};
+
+/**
+ * isSameProtocol reports whether the two provided URLs use the same protocol.
+ *
+ * Both domains must already be in canonical form.
+ * @param {string|URL} original
+ * @param {string|URL} destination
+ */
+const isSameProtocol = function isSameProtocol(destination, original) {
+	const orig = new URL$1(original).protocol;
+	const dest = new URL$1(destination).protocol;
+
+	return orig === dest;
+};
 
 /**
  * Fetch function
@@ -6678,7 +7193,7 @@ function fetch(url, opts) {
 			let error = new AbortError('The user aborted a request.');
 			reject(error);
 			if (request.body && request.body instanceof Stream.Readable) {
-				request.body.destroy(error);
+				destroyStream(request.body, error);
 			}
 			if (!response || !response.body) return;
 			response.body.emit('error', error);
@@ -6719,8 +7234,42 @@ function fetch(url, opts) {
 
 		req.on('error', function (err) {
 			reject(new FetchError(`request to ${request.url} failed, reason: ${err.message}`, 'system', err));
+
+			if (response && response.body) {
+				destroyStream(response.body, err);
+			}
+
 			finalize();
 		});
+
+		fixResponseChunkedTransferBadEnding(req, function (err) {
+			if (signal && signal.aborted) {
+				return;
+			}
+
+			if (response && response.body) {
+				destroyStream(response.body, err);
+			}
+		});
+
+		/* c8 ignore next 18 */
+		if (parseInt(process.version.substring(1)) < 14) {
+			// Before Node.js 14, pipeline() does not fully support async iterators and does not always
+			// properly handle when the socket close/end events are out of order.
+			req.on('socket', function (s) {
+				s.addListener('close', function (hadError) {
+					// if a data listener is still present we didn't end cleanly
+					const hasDataListener = s.listenerCount('data') > 0;
+
+					// if end happened before close but the socket didn't emit an error, do it now
+					if (response && hasDataListener && !hadError && !(signal && signal.aborted)) {
+						const err = new Error('Premature close');
+						err.code = 'ERR_STREAM_PREMATURE_CLOSE';
+						response.body.emit('error', err);
+					}
+				});
+			});
+		}
 
 		req.on('response', function (res) {
 			clearTimeout(reqTimeout);
@@ -6733,7 +7282,19 @@ function fetch(url, opts) {
 				const location = headers.get('Location');
 
 				// HTTP fetch step 5.3
-				const locationURL = location === null ? null : resolve_url(request.url, location);
+				let locationURL = null;
+				try {
+					locationURL = location === null ? null : new URL$1(location, request.url).toString();
+				} catch (err) {
+					// error here can only be invalid URL in Location: header
+					// do not throw when options.redirect == manual
+					// let the user extract the errorneous redirect URL
+					if (request.redirect !== 'manual') {
+						reject(new FetchError(`uri requested responds with an invalid redirect URL: ${location}`, 'invalid-redirect'));
+						finalize();
+						return;
+					}
+				}
 
 				// HTTP fetch step 5.5
 				switch (request.redirect) {
@@ -6780,6 +7341,12 @@ function fetch(url, opts) {
 							timeout: request.timeout,
 							size: request.size
 						};
+
+						if (!isDomainOrSubdomain(request.url, locationURL) || !isSameProtocol(request.url, locationURL)) {
+							for (const name of ['authorization', 'www-authenticate', 'cookie', 'cookie2']) {
+								requestOpts.headers.delete(name);
+							}
+						}
 
 						// HTTP-redirect fetch step 9
 						if (res.statusCode !== 303 && request.body && getTotalBytes(request) === null) {
@@ -6868,6 +7435,13 @@ function fetch(url, opts) {
 					response = new Response(body, response_options);
 					resolve(response);
 				});
+				raw.on('end', function () {
+					// some old IIS servers return zero-length OK deflate responses, so 'data' is never emitted.
+					if (!response) {
+						response = new Response(body, response_options);
+						resolve(response);
+					}
+				});
 				return;
 			}
 
@@ -6887,6 +7461,41 @@ function fetch(url, opts) {
 		writeToStream(req, request);
 	});
 }
+function fixResponseChunkedTransferBadEnding(request, errorCallback) {
+	let socket;
+
+	request.on('socket', function (s) {
+		socket = s;
+	});
+
+	request.on('response', function (response) {
+		const headers = response.headers;
+
+		if (headers['transfer-encoding'] === 'chunked' && !headers['content-length']) {
+			response.once('close', function (hadError) {
+				// if a data listener is still present we didn't end cleanly
+				const hasDataListener = socket.listenerCount('data') > 0;
+
+				if (hasDataListener && !hadError) {
+					const err = new Error('Premature close');
+					err.code = 'ERR_STREAM_PREMATURE_CLOSE';
+					errorCallback(err);
+				}
+			});
+		}
+	});
+}
+
+function destroyStream(stream, err) {
+	if (stream.destroy) {
+		stream.destroy(err);
+	} else {
+		// node < 8
+		stream.emit('error', err);
+		stream.end();
+	}
+}
+
 /**
  * Redirect code matching
  *
@@ -10680,6 +11289,29 @@ function regExpEscape (s) {
 
 /***/ }),
 
+/***/ 7760:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
+
+/*! node-domexception. MIT License. Jimmy Wärting <https://jimmy.warting.se/opensource> */
+
+if (!globalThis.DOMException) {
+  try {
+    const { MessageChannel } = __nccwpck_require__(1267),
+    port = new MessageChannel().port1,
+    ab = new ArrayBuffer()
+    port.postMessage(ab, [ab, ab])
+  } catch (err) {
+    err.constructor.name === 'DOMException' && (
+      globalThis.DOMException = err.constructor
+    )
+  }
+}
+
+module.exports = globalThis.DOMException
+
+
+/***/ }),
+
 /***/ 1223:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -11032,6 +11664,652 @@ function getUserAgent() {
 exports.getUserAgent = getUserAgent;
 //# sourceMappingURL=index.js.map
 
+
+/***/ }),
+
+/***/ 5840:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+Object.defineProperty(exports, "v1", ({
+  enumerable: true,
+  get: function () {
+    return _v.default;
+  }
+}));
+Object.defineProperty(exports, "v3", ({
+  enumerable: true,
+  get: function () {
+    return _v2.default;
+  }
+}));
+Object.defineProperty(exports, "v4", ({
+  enumerable: true,
+  get: function () {
+    return _v3.default;
+  }
+}));
+Object.defineProperty(exports, "v5", ({
+  enumerable: true,
+  get: function () {
+    return _v4.default;
+  }
+}));
+Object.defineProperty(exports, "NIL", ({
+  enumerable: true,
+  get: function () {
+    return _nil.default;
+  }
+}));
+Object.defineProperty(exports, "version", ({
+  enumerable: true,
+  get: function () {
+    return _version.default;
+  }
+}));
+Object.defineProperty(exports, "validate", ({
+  enumerable: true,
+  get: function () {
+    return _validate.default;
+  }
+}));
+Object.defineProperty(exports, "stringify", ({
+  enumerable: true,
+  get: function () {
+    return _stringify.default;
+  }
+}));
+Object.defineProperty(exports, "parse", ({
+  enumerable: true,
+  get: function () {
+    return _parse.default;
+  }
+}));
+
+var _v = _interopRequireDefault(__nccwpck_require__(8628));
+
+var _v2 = _interopRequireDefault(__nccwpck_require__(6409));
+
+var _v3 = _interopRequireDefault(__nccwpck_require__(5122));
+
+var _v4 = _interopRequireDefault(__nccwpck_require__(9120));
+
+var _nil = _interopRequireDefault(__nccwpck_require__(5332));
+
+var _version = _interopRequireDefault(__nccwpck_require__(1595));
+
+var _validate = _interopRequireDefault(__nccwpck_require__(6900));
+
+var _stringify = _interopRequireDefault(__nccwpck_require__(8950));
+
+var _parse = _interopRequireDefault(__nccwpck_require__(2746));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+/***/ }),
+
+/***/ 4569:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _crypto = _interopRequireDefault(__nccwpck_require__(6113));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function md5(bytes) {
+  if (Array.isArray(bytes)) {
+    bytes = Buffer.from(bytes);
+  } else if (typeof bytes === 'string') {
+    bytes = Buffer.from(bytes, 'utf8');
+  }
+
+  return _crypto.default.createHash('md5').update(bytes).digest();
+}
+
+var _default = md5;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 5332:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+var _default = '00000000-0000-0000-0000-000000000000';
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 2746:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _validate = _interopRequireDefault(__nccwpck_require__(6900));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function parse(uuid) {
+  if (!(0, _validate.default)(uuid)) {
+    throw TypeError('Invalid UUID');
+  }
+
+  let v;
+  const arr = new Uint8Array(16); // Parse ########-....-....-....-............
+
+  arr[0] = (v = parseInt(uuid.slice(0, 8), 16)) >>> 24;
+  arr[1] = v >>> 16 & 0xff;
+  arr[2] = v >>> 8 & 0xff;
+  arr[3] = v & 0xff; // Parse ........-####-....-....-............
+
+  arr[4] = (v = parseInt(uuid.slice(9, 13), 16)) >>> 8;
+  arr[5] = v & 0xff; // Parse ........-....-####-....-............
+
+  arr[6] = (v = parseInt(uuid.slice(14, 18), 16)) >>> 8;
+  arr[7] = v & 0xff; // Parse ........-....-....-####-............
+
+  arr[8] = (v = parseInt(uuid.slice(19, 23), 16)) >>> 8;
+  arr[9] = v & 0xff; // Parse ........-....-....-....-############
+  // (Use "/" to avoid 32-bit truncation when bit-shifting high-order bytes)
+
+  arr[10] = (v = parseInt(uuid.slice(24, 36), 16)) / 0x10000000000 & 0xff;
+  arr[11] = v / 0x100000000 & 0xff;
+  arr[12] = v >>> 24 & 0xff;
+  arr[13] = v >>> 16 & 0xff;
+  arr[14] = v >>> 8 & 0xff;
+  arr[15] = v & 0xff;
+  return arr;
+}
+
+var _default = parse;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 814:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+var _default = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 807:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = rng;
+
+var _crypto = _interopRequireDefault(__nccwpck_require__(6113));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+const rnds8Pool = new Uint8Array(256); // # of random values to pre-allocate
+
+let poolPtr = rnds8Pool.length;
+
+function rng() {
+  if (poolPtr > rnds8Pool.length - 16) {
+    _crypto.default.randomFillSync(rnds8Pool);
+
+    poolPtr = 0;
+  }
+
+  return rnds8Pool.slice(poolPtr, poolPtr += 16);
+}
+
+/***/ }),
+
+/***/ 5274:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _crypto = _interopRequireDefault(__nccwpck_require__(6113));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function sha1(bytes) {
+  if (Array.isArray(bytes)) {
+    bytes = Buffer.from(bytes);
+  } else if (typeof bytes === 'string') {
+    bytes = Buffer.from(bytes, 'utf8');
+  }
+
+  return _crypto.default.createHash('sha1').update(bytes).digest();
+}
+
+var _default = sha1;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 8950:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _validate = _interopRequireDefault(__nccwpck_require__(6900));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+/**
+ * Convert array of 16 byte values to UUID string format of the form:
+ * XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+ */
+const byteToHex = [];
+
+for (let i = 0; i < 256; ++i) {
+  byteToHex.push((i + 0x100).toString(16).substr(1));
+}
+
+function stringify(arr, offset = 0) {
+  // Note: Be careful editing this code!  It's been tuned for performance
+  // and works in ways you may not expect. See https://github.com/uuidjs/uuid/pull/434
+  const uuid = (byteToHex[arr[offset + 0]] + byteToHex[arr[offset + 1]] + byteToHex[arr[offset + 2]] + byteToHex[arr[offset + 3]] + '-' + byteToHex[arr[offset + 4]] + byteToHex[arr[offset + 5]] + '-' + byteToHex[arr[offset + 6]] + byteToHex[arr[offset + 7]] + '-' + byteToHex[arr[offset + 8]] + byteToHex[arr[offset + 9]] + '-' + byteToHex[arr[offset + 10]] + byteToHex[arr[offset + 11]] + byteToHex[arr[offset + 12]] + byteToHex[arr[offset + 13]] + byteToHex[arr[offset + 14]] + byteToHex[arr[offset + 15]]).toLowerCase(); // Consistency check for valid UUID.  If this throws, it's likely due to one
+  // of the following:
+  // - One or more input array values don't map to a hex octet (leading to
+  // "undefined" in the uuid)
+  // - Invalid input values for the RFC `version` or `variant` fields
+
+  if (!(0, _validate.default)(uuid)) {
+    throw TypeError('Stringified UUID is invalid');
+  }
+
+  return uuid;
+}
+
+var _default = stringify;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 8628:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _rng = _interopRequireDefault(__nccwpck_require__(807));
+
+var _stringify = _interopRequireDefault(__nccwpck_require__(8950));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+// **`v1()` - Generate time-based UUID**
+//
+// Inspired by https://github.com/LiosK/UUID.js
+// and http://docs.python.org/library/uuid.html
+let _nodeId;
+
+let _clockseq; // Previous uuid creation time
+
+
+let _lastMSecs = 0;
+let _lastNSecs = 0; // See https://github.com/uuidjs/uuid for API details
+
+function v1(options, buf, offset) {
+  let i = buf && offset || 0;
+  const b = buf || new Array(16);
+  options = options || {};
+  let node = options.node || _nodeId;
+  let clockseq = options.clockseq !== undefined ? options.clockseq : _clockseq; // node and clockseq need to be initialized to random values if they're not
+  // specified.  We do this lazily to minimize issues related to insufficient
+  // system entropy.  See #189
+
+  if (node == null || clockseq == null) {
+    const seedBytes = options.random || (options.rng || _rng.default)();
+
+    if (node == null) {
+      // Per 4.5, create and 48-bit node id, (47 random bits + multicast bit = 1)
+      node = _nodeId = [seedBytes[0] | 0x01, seedBytes[1], seedBytes[2], seedBytes[3], seedBytes[4], seedBytes[5]];
+    }
+
+    if (clockseq == null) {
+      // Per 4.2.2, randomize (14 bit) clockseq
+      clockseq = _clockseq = (seedBytes[6] << 8 | seedBytes[7]) & 0x3fff;
+    }
+  } // UUID timestamps are 100 nano-second units since the Gregorian epoch,
+  // (1582-10-15 00:00).  JSNumbers aren't precise enough for this, so
+  // time is handled internally as 'msecs' (integer milliseconds) and 'nsecs'
+  // (100-nanoseconds offset from msecs) since unix epoch, 1970-01-01 00:00.
+
+
+  let msecs = options.msecs !== undefined ? options.msecs : Date.now(); // Per 4.2.1.2, use count of uuid's generated during the current clock
+  // cycle to simulate higher resolution clock
+
+  let nsecs = options.nsecs !== undefined ? options.nsecs : _lastNSecs + 1; // Time since last uuid creation (in msecs)
+
+  const dt = msecs - _lastMSecs + (nsecs - _lastNSecs) / 10000; // Per 4.2.1.2, Bump clockseq on clock regression
+
+  if (dt < 0 && options.clockseq === undefined) {
+    clockseq = clockseq + 1 & 0x3fff;
+  } // Reset nsecs if clock regresses (new clockseq) or we've moved onto a new
+  // time interval
+
+
+  if ((dt < 0 || msecs > _lastMSecs) && options.nsecs === undefined) {
+    nsecs = 0;
+  } // Per 4.2.1.2 Throw error if too many uuids are requested
+
+
+  if (nsecs >= 10000) {
+    throw new Error("uuid.v1(): Can't create more than 10M uuids/sec");
+  }
+
+  _lastMSecs = msecs;
+  _lastNSecs = nsecs;
+  _clockseq = clockseq; // Per 4.1.4 - Convert from unix epoch to Gregorian epoch
+
+  msecs += 12219292800000; // `time_low`
+
+  const tl = ((msecs & 0xfffffff) * 10000 + nsecs) % 0x100000000;
+  b[i++] = tl >>> 24 & 0xff;
+  b[i++] = tl >>> 16 & 0xff;
+  b[i++] = tl >>> 8 & 0xff;
+  b[i++] = tl & 0xff; // `time_mid`
+
+  const tmh = msecs / 0x100000000 * 10000 & 0xfffffff;
+  b[i++] = tmh >>> 8 & 0xff;
+  b[i++] = tmh & 0xff; // `time_high_and_version`
+
+  b[i++] = tmh >>> 24 & 0xf | 0x10; // include version
+
+  b[i++] = tmh >>> 16 & 0xff; // `clock_seq_hi_and_reserved` (Per 4.2.2 - include variant)
+
+  b[i++] = clockseq >>> 8 | 0x80; // `clock_seq_low`
+
+  b[i++] = clockseq & 0xff; // `node`
+
+  for (let n = 0; n < 6; ++n) {
+    b[i + n] = node[n];
+  }
+
+  return buf || (0, _stringify.default)(b);
+}
+
+var _default = v1;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 6409:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _v = _interopRequireDefault(__nccwpck_require__(5998));
+
+var _md = _interopRequireDefault(__nccwpck_require__(4569));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+const v3 = (0, _v.default)('v3', 0x30, _md.default);
+var _default = v3;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 5998:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = _default;
+exports.URL = exports.DNS = void 0;
+
+var _stringify = _interopRequireDefault(__nccwpck_require__(8950));
+
+var _parse = _interopRequireDefault(__nccwpck_require__(2746));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function stringToBytes(str) {
+  str = unescape(encodeURIComponent(str)); // UTF8 escape
+
+  const bytes = [];
+
+  for (let i = 0; i < str.length; ++i) {
+    bytes.push(str.charCodeAt(i));
+  }
+
+  return bytes;
+}
+
+const DNS = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+exports.DNS = DNS;
+const URL = '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
+exports.URL = URL;
+
+function _default(name, version, hashfunc) {
+  function generateUUID(value, namespace, buf, offset) {
+    if (typeof value === 'string') {
+      value = stringToBytes(value);
+    }
+
+    if (typeof namespace === 'string') {
+      namespace = (0, _parse.default)(namespace);
+    }
+
+    if (namespace.length !== 16) {
+      throw TypeError('Namespace must be array-like (16 iterable integer values, 0-255)');
+    } // Compute hash of namespace and value, Per 4.3
+    // Future: Use spread syntax when supported on all platforms, e.g. `bytes =
+    // hashfunc([...namespace, ... value])`
+
+
+    let bytes = new Uint8Array(16 + value.length);
+    bytes.set(namespace);
+    bytes.set(value, namespace.length);
+    bytes = hashfunc(bytes);
+    bytes[6] = bytes[6] & 0x0f | version;
+    bytes[8] = bytes[8] & 0x3f | 0x80;
+
+    if (buf) {
+      offset = offset || 0;
+
+      for (let i = 0; i < 16; ++i) {
+        buf[offset + i] = bytes[i];
+      }
+
+      return buf;
+    }
+
+    return (0, _stringify.default)(bytes);
+  } // Function#name is not settable on some platforms (#270)
+
+
+  try {
+    generateUUID.name = name; // eslint-disable-next-line no-empty
+  } catch (err) {} // For CommonJS default export support
+
+
+  generateUUID.DNS = DNS;
+  generateUUID.URL = URL;
+  return generateUUID;
+}
+
+/***/ }),
+
+/***/ 5122:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _rng = _interopRequireDefault(__nccwpck_require__(807));
+
+var _stringify = _interopRequireDefault(__nccwpck_require__(8950));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function v4(options, buf, offset) {
+  options = options || {};
+
+  const rnds = options.random || (options.rng || _rng.default)(); // Per 4.4, set bits for version and `clock_seq_hi_and_reserved`
+
+
+  rnds[6] = rnds[6] & 0x0f | 0x40;
+  rnds[8] = rnds[8] & 0x3f | 0x80; // Copy bytes to buffer, if provided
+
+  if (buf) {
+    offset = offset || 0;
+
+    for (let i = 0; i < 16; ++i) {
+      buf[offset + i] = rnds[i];
+    }
+
+    return buf;
+  }
+
+  return (0, _stringify.default)(rnds);
+}
+
+var _default = v4;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 9120:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _v = _interopRequireDefault(__nccwpck_require__(5998));
+
+var _sha = _interopRequireDefault(__nccwpck_require__(5274));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+const v5 = (0, _v.default)('v5', 0x50, _sha.default);
+var _default = v5;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 6900:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _regex = _interopRequireDefault(__nccwpck_require__(814));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function validate(uuid) {
+  return typeof uuid === 'string' && _regex.default.test(uuid);
+}
+
+var _default = validate;
+exports["default"] = _default;
+
+/***/ }),
+
+/***/ 1595:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+
+
+Object.defineProperty(exports, "__esModule", ({
+  value: true
+}));
+exports["default"] = void 0;
+
+var _validate = _interopRequireDefault(__nccwpck_require__(6900));
+
+function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+
+function version(uuid) {
+  if (!(0, _validate.default)(uuid)) {
+    throw TypeError('Invalid UUID');
+  }
+
+  return parseInt(uuid.substr(14, 1), 16);
+}
+
+var _default = version;
+exports["default"] = _default;
 
 /***/ }),
 
@@ -15354,22 +16632,6 @@ module.exports = require("net");
 
 /***/ }),
 
-/***/ 7561:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("node:fs");
-
-/***/ }),
-
-/***/ 9411:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("node:path");
-
-/***/ }),
-
 /***/ 7742:
 /***/ ((module) => {
 
@@ -15383,14 +16645,6 @@ module.exports = require("node:process");
 
 "use strict";
 module.exports = require("node:stream/web");
-
-/***/ }),
-
-/***/ 4086:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("node:worker_threads");
 
 /***/ }),
 
@@ -15447,6 +16701,14 @@ module.exports = require("url");
 
 "use strict";
 module.exports = require("util");
+
+/***/ }),
+
+/***/ 1267:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("worker_threads");
 
 /***/ }),
 
@@ -15564,11 +16826,148 @@ const _File = class File extends _index_js__WEBPACK_IMPORTED_MODULE_0__/* ["defa
   get [Symbol.toStringTag] () {
     return 'File'
   }
+
+  static [Symbol.hasInstance] (object) {
+    return !!object && object instanceof _index_js__WEBPACK_IMPORTED_MODULE_0__/* ["default"] */ .Z &&
+      /^(File)$/.test(object[Symbol.toStringTag])
+  }
 }
 
 /** @type {typeof globalThis.File} */// @ts-ignore
 const File = _File
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (File);
+
+
+/***/ }),
+
+/***/ 2777:
+/***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
+
+"use strict";
+
+// EXPORTS
+__nccwpck_require__.d(__webpack_exports__, {
+  "t6": () => (/* reexport */ fetch_blob/* default */.Z),
+  "$B": () => (/* reexport */ file/* default */.Z),
+  "xB": () => (/* binding */ blobFrom),
+  "SX": () => (/* binding */ blobFromSync),
+  "e2": () => (/* binding */ fileFrom),
+  "RA": () => (/* binding */ fileFromSync)
+});
+
+// UNUSED EXPORTS: default
+
+;// CONCATENATED MODULE: external "node:fs"
+const external_node_fs_namespaceObject = require("node:fs");
+;// CONCATENATED MODULE: external "node:path"
+const external_node_path_namespaceObject = require("node:path");
+// EXTERNAL MODULE: ./node_modules/node-domexception/index.js
+var node_domexception = __nccwpck_require__(7760);
+// EXTERNAL MODULE: ./node_modules/fetch-blob/file.js
+var file = __nccwpck_require__(3213);
+// EXTERNAL MODULE: ./node_modules/fetch-blob/index.js
+var fetch_blob = __nccwpck_require__(1410);
+;// CONCATENATED MODULE: ./node_modules/fetch-blob/from.js
+
+
+
+
+
+
+
+const { stat } = external_node_fs_namespaceObject.promises
+
+/**
+ * @param {string} path filepath on the disk
+ * @param {string} [type] mimetype to use
+ */
+const blobFromSync = (path, type) => fromBlob((0,external_node_fs_namespaceObject.statSync)(path), path, type)
+
+/**
+ * @param {string} path filepath on the disk
+ * @param {string} [type] mimetype to use
+ * @returns {Promise<Blob>}
+ */
+const blobFrom = (path, type) => stat(path).then(stat => fromBlob(stat, path, type))
+
+/**
+ * @param {string} path filepath on the disk
+ * @param {string} [type] mimetype to use
+ * @returns {Promise<File>}
+ */
+const fileFrom = (path, type) => stat(path).then(stat => fromFile(stat, path, type))
+
+/**
+ * @param {string} path filepath on the disk
+ * @param {string} [type] mimetype to use
+ */
+const fileFromSync = (path, type) => fromFile((0,external_node_fs_namespaceObject.statSync)(path), path, type)
+
+// @ts-ignore
+const fromBlob = (stat, path, type = '') => new fetch_blob/* default */.Z([new BlobDataItem({
+  path,
+  size: stat.size,
+  lastModified: stat.mtimeMs,
+  start: 0
+})], { type })
+
+// @ts-ignore
+const fromFile = (stat, path, type = '') => new file/* default */.Z([new BlobDataItem({
+  path,
+  size: stat.size,
+  lastModified: stat.mtimeMs,
+  start: 0
+})], (0,external_node_path_namespaceObject.basename)(path), { type, lastModified: stat.mtimeMs })
+
+/**
+ * This is a blob backed up by a file on the disk
+ * with minium requirement. Its wrapped around a Blob as a blobPart
+ * so you have no direct access to this.
+ *
+ * @private
+ */
+class BlobDataItem {
+  #path
+  #start
+
+  constructor (options) {
+    this.#path = options.path
+    this.#start = options.start
+    this.size = options.size
+    this.lastModified = options.lastModified
+  }
+
+  /**
+   * Slicing arguments is first validated and formatted
+   * to not be out of range by Blob.prototype.slice
+   */
+  slice (start, end) {
+    return new BlobDataItem({
+      path: this.#path,
+      lastModified: this.lastModified,
+      size: end - start,
+      start: this.#start + start
+    })
+  }
+
+  async * stream () {
+    const { mtimeMs } = await stat(this.#path)
+    if (mtimeMs > this.lastModified) {
+      throw new node_domexception('The requested file could not be read, typically due to permission problems that have occurred after a reference to a file was acquired.', 'NotReadableError')
+    }
+    yield * (0,external_node_fs_namespaceObject.createReadStream)(this.#path, {
+      start: this.#start,
+      end: this.#start + this.size - 1
+    })
+  }
+
+  get [Symbol.toStringTag] () {
+    return 'Blob'
+  }
+}
+
+/* harmony default export */ const from = ((/* unused pure expression or super */ null && (blobFromSync)));
+
 
 
 /***/ }),
@@ -15589,16 +16988,14 @@ const File = _File
 
 
 
-/** @typedef {import('buffer').Blob} NodeBlob} */
-
 // 64 KiB (same size chrome slice theirs blob into Uint8array's)
 const POOL_SIZE = 65536
 
-/** @param {(Blob | NodeBlob | Uint8Array)[]} parts */
+/** @param {(Blob | Uint8Array)[]} parts */
 async function * toIterator (parts, clone = true) {
   for (const part of parts) {
     if ('stream' in part) {
-      yield * part.stream()
+      yield * (/** @type {AsyncIterableIterator<Uint8Array>} */ (part.stream()))
     } else if (ArrayBuffer.isView(part)) {
       if (clone) {
         let position = part.byteOffset
@@ -15612,17 +17009,16 @@ async function * toIterator (parts, clone = true) {
       } else {
         yield part
       }
+    /* c8 ignore next 10 */
     } else {
-      /* c8 ignore start */
       // For blobs that have arrayBuffer but no stream method (nodes buffer.Blob)
-      let position = 0
-      while (position !== part.size) {
-        const chunk = part.slice(position, Math.min(part.size, position + POOL_SIZE))
+      let position = 0, b = (/** @type {Blob} */ (part))
+      while (position !== b.size) {
+        const chunk = b.slice(position, Math.min(b.size, position + POOL_SIZE))
         const buffer = await chunk.arrayBuffer()
         position += buffer.byteLength
         yield new Uint8Array(buffer)
       }
-      /* c8 ignore end */
     }
   }
 }
@@ -15632,6 +17028,7 @@ const _Blob = class Blob {
   #parts = []
   #type = ''
   #size = 0
+  #endings = 'transparent'
 
   /**
    * The Blob() constructor returns a new Blob object. The content
@@ -15639,7 +17036,7 @@ const _Blob = class Blob {
    * in the parameter array.
    *
    * @param {*} blobParts
-   * @param {{ type?: string }} [options]
+   * @param {{ type?: string, endings?: string }} [options]
    */
   constructor (blobParts = [], options = {}) {
     if (typeof blobParts !== 'object' || blobParts === null) {
@@ -15666,15 +17063,15 @@ const _Blob = class Blob {
       } else if (element instanceof Blob) {
         part = element
       } else {
-        part = encoder.encode(element)
+        part = encoder.encode(`${element}`)
       }
 
       this.#size += ArrayBuffer.isView(part) ? part.byteLength : part.size
       this.#parts.push(part)
     }
 
+    this.#endings = `${options.endings === undefined ? 'transparent' : options.endings}`
     const type = options.type === undefined ? '' : String(options.type)
-
     this.#type = /^[\x20-\x7E]*$/.test(type) ? type : ''
   }
 
@@ -15740,6 +17137,7 @@ const _Blob = class Blob {
     const it = toIterator(this.#parts, true)
 
     return new globalThis.ReadableStream({
+      // @ts-ignore
       type: 'bytes',
       async pull (ctrl) {
         const chunk = await it.next()
@@ -15892,7 +17290,7 @@ return new B(c,{type:"multipart/form-data; boundary="+b})}
 
 /***/ }),
 
-/***/ 7580:
+/***/ 4429:
 /***/ ((__unused_webpack___webpack_module__, __webpack_exports__, __nccwpck_require__) => {
 
 "use strict";
@@ -15902,11 +17300,18 @@ __nccwpck_require__.r(__webpack_exports__);
 // EXPORTS
 __nccwpck_require__.d(__webpack_exports__, {
   "AbortError": () => (/* reexport */ AbortError),
+  "Blob": () => (/* reexport */ from/* Blob */.t6),
   "FetchError": () => (/* reexport */ FetchError),
+  "File": () => (/* reexport */ from/* File */.$B),
+  "FormData": () => (/* reexport */ esm_min/* FormData */.Ct),
   "Headers": () => (/* reexport */ Headers),
   "Request": () => (/* reexport */ Request),
   "Response": () => (/* reexport */ Response),
+  "blobFrom": () => (/* reexport */ from/* blobFrom */.xB),
+  "blobFromSync": () => (/* reexport */ from/* blobFromSync */.SX),
   "default": () => (/* binding */ fetch),
+  "fileFrom": () => (/* reexport */ from/* fileFrom */.e2),
+  "fileFromSync": () => (/* reexport */ from/* fileFromSync */.RA),
   "isRedirect": () => (/* reexport */ isRedirect)
 });
 
@@ -15918,6 +17323,8 @@ const external_node_https_namespaceObject = require("node:https");
 const external_node_zlib_namespaceObject = require("node:zlib");
 ;// CONCATENATED MODULE: external "node:stream"
 const external_node_stream_namespaceObject = require("node:stream");
+;// CONCATENATED MODULE: external "node:buffer"
+const external_node_buffer_namespaceObject = require("node:buffer");
 ;// CONCATENATED MODULE: ./node_modules/data-uri-to-buffer/dist/index.js
 /**
  * Returns a `Buffer` instance from the given data URI `uri`.
@@ -16085,6 +17492,35 @@ const isAbortSignal = object => {
 	);
 };
 
+/**
+ * isDomainOrSubdomain reports whether sub is a subdomain (or exact match) of
+ * the parent domain.
+ *
+ * Both domains must already be in canonical form.
+ * @param {string|URL} original
+ * @param {string|URL} destination
+ */
+const isDomainOrSubdomain = (destination, original) => {
+	const orig = new URL(original).hostname;
+	const dest = new URL(destination).hostname;
+
+	return orig === dest || orig.endsWith(`.${dest}`);
+};
+
+/**
+ * isSameProtocol reports whether the two provided URLs use the same protocol.
+ *
+ * Both domains must already be in canonical form.
+ * @param {string|URL} original
+ * @param {string|URL} destination
+ */
+const isSameProtocol = (destination, original) => {
+	const orig = new URL(original).protocol;
+	const dest = new URL(destination).protocol;
+
+	return orig === dest;
+};
+
 ;// CONCATENATED MODULE: ./node_modules/node-fetch/src/body.js
 
 /**
@@ -16103,6 +17539,8 @@ const isAbortSignal = object => {
 
 
 
+
+const pipeline = (0,external_node_util_namespaceObject.promisify)(external_node_stream_namespaceObject.pipeline);
 const INTERNALS = Symbol('Body internals');
 
 /**
@@ -16125,17 +17563,17 @@ class Body {
 			body = null;
 		} else if (isURLSearchParameters(body)) {
 			// Body is a URLSearchParams
-			body = Buffer.from(body.toString());
+			body = external_node_buffer_namespaceObject.Buffer.from(body.toString());
 		} else if (isBlob(body)) {
 			// Body is blob
-		} else if (Buffer.isBuffer(body)) {
+		} else if (external_node_buffer_namespaceObject.Buffer.isBuffer(body)) {
 			// Body is Buffer
 		} else if (external_node_util_namespaceObject.types.isAnyArrayBuffer(body)) {
 			// Body is ArrayBuffer
-			body = Buffer.from(body);
+			body = external_node_buffer_namespaceObject.Buffer.from(body);
 		} else if (ArrayBuffer.isView(body)) {
 			// Body is ArrayBufferView
-			body = Buffer.from(body.buffer, body.byteOffset, body.byteLength);
+			body = external_node_buffer_namespaceObject.Buffer.from(body.buffer, body.byteOffset, body.byteLength);
 		} else if (body instanceof external_node_stream_namespaceObject) {
 			// Body is stream
 		} else if (body instanceof esm_min/* FormData */.Ct) {
@@ -16145,12 +17583,12 @@ class Body {
 		} else {
 			// None of the above
 			// coerce to string then buffer
-			body = Buffer.from(String(body));
+			body = external_node_buffer_namespaceObject.Buffer.from(String(body));
 		}
 
 		let stream = body;
 
-		if (Buffer.isBuffer(body)) {
+		if (external_node_buffer_namespaceObject.Buffer.isBuffer(body)) {
 			stream = external_node_stream_namespaceObject.Readable.from(body);
 		} else if (isBlob(body)) {
 			stream = external_node_stream_namespaceObject.Readable.from(body.stream());
@@ -16207,7 +17645,7 @@ class Body {
 			return formData;
 		}
 
-		const {toFormData} = await __nccwpck_require__.e(/* import() */ 905).then(__nccwpck_require__.bind(__nccwpck_require__, 9905));
+		const {toFormData} = await __nccwpck_require__.e(/* import() */ 37).then(__nccwpck_require__.bind(__nccwpck_require__, 4037));
 		return toFormData(this.body, ct);
 	}
 
@@ -16218,7 +17656,7 @@ class Body {
 	 */
 	async blob() {
 		const ct = (this.headers && this.headers.get('content-type')) || (this[INTERNALS].body && this[INTERNALS].body.type) || '';
-		const buf = await this.buffer();
+		const buf = await this.arrayBuffer();
 
 		return new fetch_blob/* default */.Z([buf], {
 			type: ct
@@ -16231,8 +17669,8 @@ class Body {
 	 * @return  Promise
 	 */
 	async json() {
-		const buffer = await consumeBody(this);
-		return JSON.parse(buffer.toString());
+		const text = await this.text();
+		return JSON.parse(text);
 	}
 
 	/**
@@ -16242,7 +17680,7 @@ class Body {
 	 */
 	async text() {
 		const buffer = await consumeBody(this);
-		return buffer.toString();
+		return new TextDecoder().decode(buffer);
 	}
 
 	/**
@@ -16264,7 +17702,10 @@ Object.defineProperties(Body.prototype, {
 	arrayBuffer: {enumerable: true},
 	blob: {enumerable: true},
 	json: {enumerable: true},
-	text: {enumerable: true}
+	text: {enumerable: true},
+	data: {get: (0,external_node_util_namespaceObject.deprecate)(() => {},
+		'data doesn\'t exist, use json(), text(), arrayBuffer(), or body instead',
+		'https://github.com/node-fetch/node-fetch/issues/1000 (response)')}
 });
 
 /**
@@ -16289,12 +17730,12 @@ async function consumeBody(data) {
 
 	// Body is null
 	if (body === null) {
-		return Buffer.alloc(0);
+		return external_node_buffer_namespaceObject.Buffer.alloc(0);
 	}
 
 	/* c8 ignore next 3 */
 	if (!(body instanceof external_node_stream_namespaceObject)) {
-		return Buffer.alloc(0);
+		return external_node_buffer_namespaceObject.Buffer.alloc(0);
 	}
 
 	// Body is stream
@@ -16321,10 +17762,10 @@ async function consumeBody(data) {
 	if (body.readableEnded === true || body._readableState.ended === true) {
 		try {
 			if (accum.every(c => typeof c === 'string')) {
-				return Buffer.from(accum.join(''));
+				return external_node_buffer_namespaceObject.Buffer.from(accum.join(''));
 			}
 
-			return Buffer.concat(accum, accumBytes);
+			return external_node_buffer_namespaceObject.Buffer.concat(accum, accumBytes);
 		} catch (error) {
 			throw new FetchError(`Could not create Buffer from response body for ${data.url}: ${error.message}`, 'system', error);
 		}
@@ -16404,7 +17845,7 @@ const extractContentType = (body, request) => {
 	}
 
 	// Body is a Buffer (Buffer, ArrayBuffer or ArrayBufferView)
-	if (Buffer.isBuffer(body) || external_node_util_namespaceObject.types.isAnyArrayBuffer(body) || ArrayBuffer.isView(body)) {
+	if (external_node_buffer_namespaceObject.Buffer.isBuffer(body) || external_node_util_namespaceObject.types.isAnyArrayBuffer(body) || ArrayBuffer.isView(body)) {
 		return null;
 	}
 
@@ -16449,7 +17890,7 @@ const getTotalBytes = request => {
 	}
 
 	// Body is Buffer
-	if (Buffer.isBuffer(body)) {
+	if (external_node_buffer_namespaceObject.Buffer.isBuffer(body)) {
 		return body.length;
 	}
 
@@ -16467,15 +17908,15 @@ const getTotalBytes = request => {
  *
  * @param {Stream.Writable} dest The stream to write to.
  * @param obj.body Body object from the Body instance.
- * @returns {void}
+ * @returns {Promise<void>}
  */
-const writeToStream = (dest, {body}) => {
+const writeToStream = async (dest, {body}) => {
 	if (body === null) {
 		// Body is null
 		dest.end();
 	} else {
 		// Body is stream
-		body.pipe(dest);
+		await pipeline(body, dest);
 	}
 };
 
@@ -16489,6 +17930,7 @@ const writeToStream = (dest, {body}) => {
 
 
 
+/* c8 ignore next 9 */
 const validateHeaderName = typeof external_node_http_namespaceObject.validateHeaderName === 'function' ?
 	external_node_http_namespaceObject.validateHeaderName :
 	name => {
@@ -16499,6 +17941,7 @@ const validateHeaderName = typeof external_node_http_namespaceObject.validateHea
 		}
 	};
 
+/* c8 ignore next 9 */
 const validateHeaderValue = typeof external_node_http_namespaceObject.validateHeaderValue === 'function' ?
 	external_node_http_namespaceObject.validateHeaderValue :
 	(name, value) => {
@@ -16623,8 +18066,8 @@ class Headers extends URLSearchParams {
 						return Reflect.get(target, p, receiver);
 				}
 			}
-			/* c8 ignore next */
 		});
+		/* c8 ignore next */
 	}
 
 	get [Symbol.toStringTag]() {
@@ -16886,6 +18329,25 @@ class Response extends Body {
 		return response;
 	}
 
+	static json(data = undefined, init = {}) {
+		const body = JSON.stringify(data);
+
+		if (body === undefined) {
+			throw new TypeError('data is not JSON serializable');
+		}
+
+		const headers = new Headers(init && init.headers);
+
+		if (!headers.has('content-type')) {
+			headers.set('content-type', 'application/json');
+		}
+
+		return new Response(body, {
+			...init,
+			headers
+		});
+	}
+
 	get [Symbol.toStringTag]() {
 		return 'Response';
 	}
@@ -16915,8 +18377,8 @@ const getSearch = parsedURL => {
 	return parsedURL.href[lastOffset - hash.length] === '?' ? '?' : '';
 };
 
-// EXTERNAL MODULE: external "net"
-var external_net_ = __nccwpck_require__(1808);
+;// CONCATENATED MODULE: external "node:net"
+const external_node_net_namespaceObject = require("node:net");
 ;// CONCATENATED MODULE: ./node_modules/node-fetch/src/utils/referrer.js
 
 
@@ -17026,7 +18488,7 @@ function isOriginPotentiallyTrustworthy(url) {
 
 	// 4. If origin's host component matches one of the CIDR notations 127.0.0.0/8 or ::1/128 [RFC4632], return "Potentially Trustworthy".
 	const hostIp = url.host.replace(/(^\[)|(]$)/g, '');
-	const hostIPVersion = (0,external_net_.isIP)(hostIp);
+	const hostIPVersion = (0,external_node_net_namespaceObject.isIP)(hostIp);
 
 	if (hostIPVersion === 4 && /^127\./.test(hostIp)) {
 		return true;
@@ -17039,7 +18501,7 @@ function isOriginPotentiallyTrustworthy(url) {
 	// 5. If origin's host component is "localhost" or falls within ".localhost", and the user agent conforms to the name resolution rules in [let-localhost-be-localhost], return "Potentially Trustworthy".
 	// We are returning FALSE here because we cannot ensure conformance to
 	// let-localhost-be-loalhost (https://tools.ietf.org/html/draft-west-let-localhost-be-localhost)
-	if (/^(.+\.)*localhost$/.test(url.host)) {
+	if (url.host === 'localhost' || url.host.endsWith('.localhost')) {
 		return false;
 	}
 
@@ -17260,7 +18722,6 @@ function parseReferrerPolicyFromHeader(headers) {
 }
 
 ;// CONCATENATED MODULE: ./node_modules/node-fetch/src/request.js
-
 /**
  * Request.js
  *
@@ -17276,12 +18737,13 @@ function parseReferrerPolicyFromHeader(headers) {
 
 
 
+
 const request_INTERNALS = Symbol('Request internals');
 
 /**
  * Check if `obj` is an instance of Request.
  *
- * @param  {*} obj
+ * @param  {*} object
  * @return {boolean}
  */
 const isRequest = object => {
@@ -17290,6 +18752,10 @@ const isRequest = object => {
 		typeof object[request_INTERNALS] === 'object'
 	);
 };
+
+const doBadDataWarn = (0,external_node_util_namespaceObject.deprecate)(() => {},
+	'.data is not a valid RequestInit property, use .body instead',
+	'https://github.com/node-fetch/node-fetch/issues/1000 (request)');
 
 /**
  * Request class
@@ -17313,14 +18779,20 @@ class Request extends Body {
 		}
 
 		if (parsedURL.username !== '' || parsedURL.password !== '') {
-			throw new TypeError(`${parsedURL} is an url with embedded credentails.`);
+			throw new TypeError(`${parsedURL} is an url with embedded credentials.`);
 		}
 
 		let method = init.method || input.method || 'GET';
-		method = method.toUpperCase();
+		if (/^(delete|get|head|options|post|put)$/i.test(method)) {
+			method = method.toUpperCase();
+		}
+
+		if (!isRequest(init) && 'data' in init) {
+			doBadDataWarn();
+		}
 
 		// eslint-disable-next-line no-eq-null, eqeqeq
-		if (((init.body != null || isRequest(input)) && input.body !== null) &&
+		if ((init.body != null || (isRequest(input) && input.body !== null)) &&
 			(method === 'GET' || method === 'HEAD')) {
 			throw new TypeError('Request with GET/HEAD method cannot have body');
 		}
@@ -17393,14 +18865,17 @@ class Request extends Body {
 		this.referrerPolicy = init.referrerPolicy || input.referrerPolicy || '';
 	}
 
+	/** @returns {string} */
 	get method() {
 		return this[request_INTERNALS].method;
 	}
 
+	/** @returns {string} */
 	get url() {
 		return (0,external_node_url_namespaceObject.format)(this[request_INTERNALS].parsedURL);
 	}
 
+	/** @returns {Headers} */
 	get headers() {
 		return this[request_INTERNALS].headers;
 	}
@@ -17409,6 +18884,7 @@ class Request extends Body {
 		return this[request_INTERNALS].redirect;
 	}
 
+	/** @returns {AbortSignal} */
 	get signal() {
 		return this[request_INTERNALS].signal;
 	}
@@ -17466,8 +18942,8 @@ Object.defineProperties(Request.prototype, {
 /**
  * Convert a Request to Node.js http request options.
  *
- * @param   Request  A Request instance
- * @return  Object   The options object to be passed to http.request
+ * @param {Request} request - A Request instance
+ * @return The options object to be passed to http.request
  */
 const getNodeRequestOptions = request => {
 	const {parsedURL} = request[request_INTERNALS];
@@ -17526,7 +19002,7 @@ const getNodeRequestOptions = request => {
 
 	// HTTP-network-or-cache fetch step 2.15
 	if (request.compress && !headers.has('Accept-Encoding')) {
-		headers.set('Accept-Encoding', 'gzip,deflate,br');
+		headers.set('Accept-Encoding', 'gzip, deflate, br');
 	}
 
 	let {agent} = request;
@@ -17556,6 +19032,7 @@ const getNodeRequestOptions = request => {
 	};
 
 	return {
+		/** @type {URL} */
 		parsedURL,
 		options
 	};
@@ -17573,6 +19050,8 @@ class AbortError extends FetchBaseError {
 	}
 }
 
+// EXTERNAL MODULE: ./node_modules/fetch-blob/from.js + 2 modules
+var from = __nccwpck_require__(2777);
 ;// CONCATENATED MODULE: ./node_modules/node-fetch/src/index.js
 /**
  * Index.js
@@ -17581,6 +19060,12 @@ class AbortError extends FetchBaseError {
  *
  * All spec algorithm step numbers are based on https://fetch.spec.whatwg.org/commit-snapshots/ae716822cb3a61843226cd090eefc6589446c1d2/.
  */
+
+
+
+
+
+
 
 
 
@@ -17654,7 +19139,7 @@ async function fetch(url, options_) {
 		};
 
 		// Send request
-		const request_ = send(parsedURL, options);
+		const request_ = send(parsedURL.toString(), options);
 
 		if (signal) {
 			signal.addEventListener('abort', abortAndFinalize);
@@ -17673,7 +19158,9 @@ async function fetch(url, options_) {
 		});
 
 		fixResponseChunkedTransferBadEnding(request_, error => {
-			response.body.destroy(error);
+			if (response && response.body) {
+				response.body.destroy(error);
+			}
 		});
 
 		/* c8 ignore next 18 */
@@ -17706,7 +19193,19 @@ async function fetch(url, options_) {
 				const location = headers.get('Location');
 
 				// HTTP fetch step 5.3
-				const locationURL = location === null ? null : new URL(location, request.url);
+				let locationURL = null;
+				try {
+					locationURL = location === null ? null : new URL(location, request.url);
+				} catch {
+					// error here can only be invalid URL in Location: header
+					// do not throw when options.redirect == manual
+					// let the user extract the errorneous redirect URL
+					if (request.redirect !== 'manual') {
+						reject(new FetchError(`uri requested responds with an invalid redirect URL: ${location}`, 'invalid-redirect'));
+						finalize();
+						return;
+					}
+				}
 
 				// HTTP fetch step 5.5
 				switch (request.redirect) {
@@ -17715,11 +19214,7 @@ async function fetch(url, options_) {
 						finalize();
 						return;
 					case 'manual':
-						// Node-fetch-specific step: make manual redirect a bit easier to use by setting the Location header value to the resolved URL.
-						if (locationURL !== null) {
-							headers.set('Location', locationURL);
-						}
-
+						// Nothing to do
 						break;
 					case 'follow': {
 						// HTTP-redirect fetch step 2
@@ -17749,6 +19244,21 @@ async function fetch(url, options_) {
 							referrer: request.referrer,
 							referrerPolicy: request.referrerPolicy
 						};
+
+						// when forwarding sensitive headers like "Authorization",
+						// "WWW-Authenticate", and "Cookie" to untrusted targets,
+						// headers will be ignored when following a redirect to a domain
+						// that is not a subdomain match or exact match of the initial domain.
+						// For example, a redirect from "foo.com" to either "foo.com" or "sub.foo.com"
+						// will forward the sensitive headers, but a redirect to "bar.com" will not.
+						// headers will also be ignored when following a redirect to a domain using
+						// a different protocol. For example, a redirect from "https://foo.com" to "http://foo.com"
+						// will not forward the sensitive headers
+						if (!isDomainOrSubdomain(request.url, locationURL) || !isSameProtocol(request.url, locationURL)) {
+							for (const name of ['authorization', 'www-authenticate', 'cookie', 'cookie2']) {
+								requestOptions.headers.delete(name);
+							}
+						}
 
 						// HTTP-redirect fetch step 9
 						if (response_.statusCode !== 303 && request.body && options_.body instanceof external_node_stream_namespaceObject.Readable) {
@@ -17788,8 +19298,13 @@ async function fetch(url, options_) {
 				});
 			}
 
-			let body = (0,external_node_stream_namespaceObject.pipeline)(response_, new external_node_stream_namespaceObject.PassThrough(), reject);
+			let body = (0,external_node_stream_namespaceObject.pipeline)(response_, new external_node_stream_namespaceObject.PassThrough(), error => {
+				if (error) {
+					reject(error);
+				}
+			});
 			// see https://github.com/nodejs/node/pull/29376
+			/* c8 ignore next 3 */
 			if (process.version < 'v12.10') {
 				response_.on('aborted', abortAndFinalize);
 			}
@@ -17833,7 +19348,11 @@ async function fetch(url, options_) {
 
 			// For gzip
 			if (codings === 'gzip' || codings === 'x-gzip') {
-				body = (0,external_node_stream_namespaceObject.pipeline)(body, external_node_zlib_namespaceObject.createGunzip(zlibOptions), reject);
+				body = (0,external_node_stream_namespaceObject.pipeline)(body, external_node_zlib_namespaceObject.createGunzip(zlibOptions), error => {
+					if (error) {
+						reject(error);
+					}
+				});
 				response = new Response(body, responseOptions);
 				resolve(response);
 				return;
@@ -17843,20 +19362,48 @@ async function fetch(url, options_) {
 			if (codings === 'deflate' || codings === 'x-deflate') {
 				// Handle the infamous raw deflate response from old servers
 				// a hack for old IIS and Apache servers
-				const raw = (0,external_node_stream_namespaceObject.pipeline)(response_, new external_node_stream_namespaceObject.PassThrough(), reject);
+				const raw = (0,external_node_stream_namespaceObject.pipeline)(response_, new external_node_stream_namespaceObject.PassThrough(), error => {
+					if (error) {
+						reject(error);
+					}
+				});
 				raw.once('data', chunk => {
 					// See http://stackoverflow.com/questions/37519828
-					body = (chunk[0] & 0x0F) === 0x08 ? (0,external_node_stream_namespaceObject.pipeline)(body, external_node_zlib_namespaceObject.createInflate(), reject) : (0,external_node_stream_namespaceObject.pipeline)(body, external_node_zlib_namespaceObject.createInflateRaw(), reject);
+					if ((chunk[0] & 0x0F) === 0x08) {
+						body = (0,external_node_stream_namespaceObject.pipeline)(body, external_node_zlib_namespaceObject.createInflate(), error => {
+							if (error) {
+								reject(error);
+							}
+						});
+					} else {
+						body = (0,external_node_stream_namespaceObject.pipeline)(body, external_node_zlib_namespaceObject.createInflateRaw(), error => {
+							if (error) {
+								reject(error);
+							}
+						});
+					}
 
 					response = new Response(body, responseOptions);
 					resolve(response);
+				});
+				raw.once('end', () => {
+					// Some old IIS servers return zero-length OK deflate responses, so
+					// 'data' is never emitted. See https://github.com/node-fetch/node-fetch/pull/903
+					if (!response) {
+						response = new Response(body, responseOptions);
+						resolve(response);
+					}
 				});
 				return;
 			}
 
 			// For br
 			if (codings === 'br') {
-				body = (0,external_node_stream_namespaceObject.pipeline)(body, external_node_zlib_namespaceObject.createBrotliDecompress(), reject);
+				body = (0,external_node_stream_namespaceObject.pipeline)(body, external_node_zlib_namespaceObject.createBrotliDecompress(), error => {
+					if (error) {
+						reject(error);
+					}
+				});
 				response = new Response(body, responseOptions);
 				resolve(response);
 				return;
@@ -17867,12 +19414,13 @@ async function fetch(url, options_) {
 			resolve(response);
 		});
 
-		writeToStream(request_, request);
+		// eslint-disable-next-line promise/prefer-await-to-then
+		writeToStream(request_, request).catch(reject);
 	});
 }
 
 function fixResponseChunkedTransferBadEnding(request, errorCallback) {
-	const LAST_CHUNK = Buffer.from('0\r\n\r\n');
+	const LAST_CHUNK = external_node_buffer_namespaceObject.Buffer.from('0\r\n\r\n');
 
 	let isChunkedTransfer = false;
 	let properLastChunkReceived = false;
@@ -17892,24 +19440,26 @@ function fixResponseChunkedTransferBadEnding(request, errorCallback) {
 			}
 		};
 
-		socket.prependListener('close', onSocketClose);
-
-		request.on('abort', () => {
-			socket.removeListener('close', onSocketClose);
-		});
-
-		socket.on('data', buf => {
-			properLastChunkReceived = Buffer.compare(buf.slice(-5), LAST_CHUNK) === 0;
+		const onData = buf => {
+			properLastChunkReceived = external_node_buffer_namespaceObject.Buffer.compare(buf.slice(-5), LAST_CHUNK) === 0;
 
 			// Sometimes final 0-length chunk and end of message code are in separate packets
 			if (!properLastChunkReceived && previousChunk) {
 				properLastChunkReceived = (
-					Buffer.compare(previousChunk.slice(-3), LAST_CHUNK.slice(0, 3)) === 0 &&
-					Buffer.compare(buf.slice(-2), LAST_CHUNK.slice(3)) === 0
+					external_node_buffer_namespaceObject.Buffer.compare(previousChunk.slice(-3), LAST_CHUNK.slice(0, 3)) === 0 &&
+					external_node_buffer_namespaceObject.Buffer.compare(buf.slice(-2), LAST_CHUNK.slice(3)) === 0
 				);
 			}
 
 			previousChunk = buf;
+		};
+
+		socket.prependListener('close', onSocketClose);
+		socket.on('data', onData);
+
+		request.on('close', () => {
+			socket.removeListener('close', onSocketClose);
+			socket.removeListener('data', onData);
 		});
 	});
 }
