@@ -31,6 +31,13 @@ inputs:
     description: "Identify the release as a prerelease. Defaults to true"
     required: false
     default: true
+  only-when-changed:
+    description: "Skip releasing if the existing nightly tag already points to the current commit SHA. Defaults to true."
+    required: false
+    default: true
+outputs:
+  skipped:
+    description: "'true' when the release was skipped because the commit was unchanged"
 env:
   "GITHUB_TOKEN": "As provided by Github Actions"
 runs:

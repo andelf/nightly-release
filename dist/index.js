@@ -8,7 +8,11 @@ require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
-    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
 }) : (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     o[k2] = m[k];
@@ -47,6 +51,7 @@ async function run() {
         const tagName = core.getInput('tag_name');
         let isDraft = core.getInput('draft') === 'true';
         const isPrerelease = core.getInput('prerelease') === 'true';
+        const onlyWhenChanged = core.getInput('only-when-changed') !== 'false';
         if (isDraft) {
             core.warning('Deprecated, draft must be turned off for nightly build.');
             isDraft = false;
@@ -69,7 +74,35 @@ async function run() {
                 repo,
                 tag: tagName
             });
-            // draft it
+        }
+        catch (e) {
+            // release 404
+        }
+        // only-when-changed: skip if the tag ref already points at the current SHA
+        if (onlyWhenChanged && rel && GITHUB_SHA) {
+            let existingTagSha;
+            try {
+                const refResp = await github.rest.git.getRef({
+                    owner,
+                    repo,
+                    ref: `tags/${tagName}`
+                });
+                existingTagSha = refResp.data.object.sha;
+            }
+            catch (e) {
+                // tag ref missing — fall through and run normally
+            }
+            if (existingTagSha && existingTagSha === GITHUB_SHA) {
+                core.info(`🛑 ${tagName} already at ${GITHUB_SHA}, skipping (only-when-changed=true)`);
+                core.setOutput('url', rel.data.html_url);
+                core.setOutput('id', rel.data.id.toString());
+                core.setOutput('upload_url', rel.data.upload_url);
+                core.setOutput('skipped', 'true');
+                return;
+            }
+        }
+        if (rel) {
+            // draft it while we swap assets
             await github.rest.repos.updateRelease({
                 owner,
                 repo,
@@ -77,10 +110,7 @@ async function run() {
                 draft: true
             });
         }
-        catch (e) {
-            // release 404
-        }
-        if (!rel) {
+        else {
             const ret = await github.rest.repos.createRelease({
                 owner,
                 repo,

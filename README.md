@@ -9,6 +9,7 @@ This action is use to create/update a nightly release.
 - Update Release name with simple template with date
 - Create/change `nightly` tag to head ref
 - Remove old assets, and upload new ones
+- Skip releasing automatically when there are no new commits since the last nightly run (`only-when-changed`, default `true`)
 
 ## Usage
 
@@ -29,6 +30,28 @@ This action is use to create/update a nightly release.
             ./*.exe
             ./*.AppImage
 ```
+
+## Inputs
+
+| Name | Default | Description |
+| --- | --- | --- |
+| `tag_name` | `nightly` | Tag pointed at the current ref. |
+| `name` | `Nightly Release @ $$` | Release name. `$$` is replaced with `YYYYMMDD`. |
+| `body` | — | Inline release notes. |
+| `body_path` | — | Path to a file containing release notes. |
+| `files` | — | Newline-separated globs for asset files to upload. |
+| `prerelease` | `true` | Mark the release as prerelease. |
+| `only-when-changed` | `true` | When `true`, skip the run entirely if the existing nightly tag already points at the current commit SHA. Set to `false` to force a release on every run. |
+
+## Outputs
+
+| Name | Description |
+| --- | --- |
+| `url` | URL of the release (set even when skipped). |
+| `id` | Release ID (set even when skipped). |
+| `upload_url` | Asset upload URL (set even when skipped). |
+| `assets` | JSON of the uploaded assets (only set when assets were uploaded). |
+| `skipped` | `'true'` when the run was skipped because the commit was unchanged. |
 
 ## Demo
 
