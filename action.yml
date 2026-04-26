@@ -41,7 +41,7 @@ outputs:
 env:
   "GITHUB_TOKEN": "As provided by Github Actions"
 runs:
-  using: 'node20'
+  using: 'node24'
   main: 'dist/index.js'
 branding:
   color: "blue"
