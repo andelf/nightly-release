@@ -13,9 +13,12 @@ This action is use to create/update a nightly release.
 
 ## Usage
 
+> Use `@v2` (node24 runtime, has `only-when-changed`).
+> `@v1` still runs on node16 and lacks that input.
+
 ```yaml
       - name: Update Nightly Release
-        uses: andelf/nightly-release@main
+        uses: andelf/nightly-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
